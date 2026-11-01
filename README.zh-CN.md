@@ -13,6 +13,25 @@
 
 **⚠️ 仅限授权安全测试用途--见 [DISCLAIMER.md](DISCLAIMER.md)。**
 
+## 先说清楚：这是什么
+
+**sapper 是一个多 Agent 调度机制（harness），不是一个 Agent。** 它不绑定任何特定的 AI 模型或 CLI--你可以随意替换每个角色背后的 Agent 和模型：
+
+| 可以换什么 | 怎么换 | 举例 |
+|---|---|---|
+| **Agent CLI** | `nuwa spawn --agent <命令>` 或环境变量 | Claude Code / Codex / Code Buddy / DeepSeek / 任何交互式 CLI |
+| **模型** | `--model` 参数或 `SAPPER_MODEL` 环境变量 | GLM-5.3 / DeepSeek V4.1 Flash / Claude Sonnet / 任何模型 |
+| **角色组合** | 军规里自由定义 | 指挥官用一个模型、士兵用另一个、侦察兵用第三个 |
+
+sapper 的价值不在任何单个 Agent，而在**组织多个 Agent 协同作战的机制**：调度、分工、通信、记忆、自愈--换掉所有 Agent 和模型，这套机制照常运转。
+
+**本项目为竞赛场景设计**（腾讯智能攻防赛 CTF）。如果你想在自己的场景（办公、研究、工程、任何长周期协作）用这套机制：
+- **从 [nvwabase · 女娲基座](https://github.com/N1nEmAn/nvwabase) 起步**--三能力齐备的通用底座，不带渗透军规，直接迭代出你自己的分工
+- **或者在本项目上改**--把 `docker/commander/SKILL.md`（426 行军规）换成你场景的策略，其余机制原样保留
+- 反正有 AI 嘛，可以灵活变化--改军规的军规也是让 AI 帮你写
+
+---
+
 sapper 不是一个更聪明的单 agent，而是一支会自己分工、交流、传承经验的 AI 军团：一个 AI 指挥官读板、判断、派单，将军与士兵并行渗透，零策略看门狗保活--所有知识沉淀在一张分层事实图上，个体死了，图还在。
 
 ---

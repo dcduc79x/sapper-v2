@@ -13,6 +13,32 @@
 
 **⚠️ AUTHORIZED SECURITY TESTING ONLY - see [DISCLAIMER.md](DISCLAIMER.md).**
 
+## What this is (and isn't)
+
+**sapper is a multi-agent orchestration harness, not a single agent.** It does
+not bind to any specific AI model or CLI - you can freely swap the agent and
+model behind every role:
+
+| What you can swap | How | Examples |
+|---|---|---|
+| **Agent CLI** | `nuwa spawn --agent <cmd>` or env var | Claude Code / Codex / Code Buddy / DeepSeek / any interactive CLI |
+| **Model** | `--model` flag or `SAPPER_MODEL` env | GLM-5.3 / DeepSeek V4.1 Flash / Claude Sonnet / any model |
+| **Role composition** | freely defined in the doctrine | commander on one model, soldiers on another, scouts on a third |
+
+sapper's value is not in any single agent, but in the **mechanism for
+orchestrating multiple agents to work as a coordinated force**: scheduling,
+division of labor, communication, shared memory, self-healing. Swap out every
+agent and model - the mechanism still works.
+
+**This project is designed for competition scenarios** (Tencent Intelligent
+Attack-Defense Challenge CTF). If you want to use this mechanism in your own
+scenario (office, research, engineering, any long-horizon cooperative work):
+- **Start from [nvwabase · the Nüwa Foundation](https://github.com/N1nEmAn/nvwabase)** - the general-purpose base with all three capabilities, no pentest doctrine, ready for you to iterate your own division of labor
+- **Or fork this project** - replace `docker/commander/SKILL.md` (the 426-line doctrine) with your scenario's strategy, keep the rest of the mechanism as-is
+- With AI, everything is flexible - even the doctrine can be rewritten with AI's help
+
+---
+
 sapper is not a smarter single agent. It is a legion of AIs that divide labor,
 talk to each other, and pass down what they learn: one AI commander reads the
 board, decides, and dispatches; generals and soldiers attack in parallel; a
