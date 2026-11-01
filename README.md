@@ -190,10 +190,15 @@ sapper status                        # board & frontier
 Docker (the full legion):
 
 ```bash
+# Option A: build from source
 docker build -f docker/Dockerfile.commander -t sapper:latest .
-# env vars (model gateways / key pool / budget) in docker/ENV.md
-docker run -d --name sapper ... sapper:latest
+
+# Option B: download the pre-built image (~1.2GB, full Kali toolchain + sapper + offline KB)
+# → [Release v18-champion](https://github.com/N1nEmAn/sapper-v2/releases/tag/v18-champion)
+docker load < sapper-v18-commander.tar.gz
 ```
+
+Environment variables (model gateways / key pool / budget): [docker/ENV.md](docker/ENV.md).
 
 Single-graph operation, the fact-intent CLI, and multi-challenge sweeps:
 see [SKILL.md](SKILL.md).

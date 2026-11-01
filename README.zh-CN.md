@@ -127,10 +127,15 @@ sapper status                        # 看板与前沿
 Docker 方式（军团完整形态）：
 
 ```bash
+# 方式一：从源码构建
 docker build -f docker/Dockerfile.commander -t sapper:latest .
-# 环境变量配置见 docker/ENV.md（模型网关 / key 池 / 预算）
-docker run -d --name sapper ... sapper:latest
+
+# 方式二：下载预构建镜像（含完整 Kali 工具链 + sapper + 离线知识库，约 1.2GB）
+# → [Release v18-champion](https://github.com/N1nEmAn/sapper-v2/releases/tag/v18-champion)
+docker load < sapper-v18-commander.tar.gz
 ```
+
+环境变量配置见 [docker/ENV.md](docker/ENV.md)（模型网关 / key 池 / 预算）。
 
 单图操作 / 事实意图 CLI / 多题 sweep 全量命令见 [SKILL.md](SKILL.md)。
 
