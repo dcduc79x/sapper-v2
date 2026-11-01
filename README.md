@@ -9,6 +9,8 @@
 >
 > **This was the first time an AI ape looked up at the stars.**
 
+📖 **[Full design article (WeChat, in Chinese)](https://mp.weixin.qq.com/s/nibHYWmDTf6TkNhPhtvFdw)** - the Nüwa Test, the three-capability foundation, 18 iterations, emergence, and the taggant proposal.
+
 **English** | [中文](README.zh-CN.md)
 
 **⚠️ AUTHORIZED SECURITY TESTING ONLY - see [DISCLAIMER.md](DISCLAIMER.md).**

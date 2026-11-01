@@ -9,6 +9,8 @@
 >
 > **这是 AI 猿人第一次仰望星空。**
 
+📖 **[设计原理详解（公众号长文）](https://mp.weixin.qq.com/s/nibHYWmDTf6TkNhPhtvFdw)**--女娲测试、三能力基座、18 版迭代、涌现行为、示踪剂提案的完整阐述。
+
 [English](README.md) | **中文**
 
 **⚠️ 仅限授权安全测试用途--见 [DISCLAIMER.md](DISCLAIMER.md)。**
