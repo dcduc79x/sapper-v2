@@ -48,7 +48,7 @@ sapper，就是女娲基座在渗透场景的一次初级阶段实战。
 
 ### 🏗️ 把基座拿去用：nvwabase
 
-这个"历史"支柱已独立开源为 **[nvwabase · 女娲基座](https://github.com/N1nEmAn/nvwabase)**--**任何人、任何场景、任何 agent 都可以免费拿去用**，不限于渗透测试、不限于 sapper、不限于 Claude Code。办公协作、研究实验、工程项目、任何长周期多智能体工作，都可以在其上迭代出你自己的分工与文明。
+**[nvwabase · 女娲基座](https://github.com/N1nEmAn/nvwabase)** 已将三能力（造人 `nuwa spawn` / 语言 `nuwa say·listen` / 历史 `nuwa fact·intent·recall`）独立开源--**任何人、任何场景、任何 agent 都可以免费拿去用**，不限于渗透测试、不限于 sapper、不限于 Claude Code。办公协作、研究实验、工程项目、任何长周期多智能体工作，都可以在其上迭代出你自己的分工与文明。
 
 ```bash
 git clone https://github.com/N1nEmAn/nvwabase

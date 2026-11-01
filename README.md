@@ -72,11 +72,13 @@ giving it the foundation of a civilization is how it reaches its potential.
 
 ### 🏗️ Take the Foundation: nvwabase
 
-The History pillar is independently open-sourced as
-**[nvwabase · the Nüwa Foundation](https://github.com/N1nEmAn/nvwabase)** -
-**free for anyone, any scenario, any agent**. Not limited to pentest, not
-limited to sapper, not limited to Claude Code. Offices, research, engineering,
-any long-horizon multi-agent work - iterate your own civilization on it.
+**[nvwabase · the Nüwa Foundation](https://github.com/N1nEmAn/nvwabase)**
+now implements all three capabilities (Create `nuwa spawn` / Language
+`nuwa say·listen` / History `nuwa fact·intent·recall`) as an independent
+open-source project - **free for anyone, any scenario, any agent**. Not
+limited to pentest, not limited to sapper, not limited to Claude Code.
+Offices, research, engineering, any long-horizon multi-agent work - iterate
+your own civilization on it.
 
 ```bash
 git clone https://github.com/N1nEmAn/nvwabase
