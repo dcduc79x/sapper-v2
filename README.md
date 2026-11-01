@@ -1,5 +1,7 @@
 # sapper-v2 - The Autonomous Pentest Legion
 
+<p align="center"><img src="docs/assets/banner.jpg" alt="sapper-v2 - the Nüwa Test: the first time an AI ape looked up at the stars (80.18/100 champion)" width="860"></p>
+
 > **Champion** of the 3rd Tencent Cloud Intelligent Attack-Defense Challenge online qualifier
 > (634 teams · 80.18/100 · 8 hours fully unattended) · **First Prize**, GeekCon 2026 AI Challenge
 >
@@ -47,6 +49,8 @@ arena, at its primary stage.
 
 ## 2. The Foundation: Three Capabilities
 
+<p align="center"><img src="docs/assets/foundation-three-capabilities.jpg" alt="Three capabilities: Create / Language / History (fact-intent graph)" width="720"></p>
+
 | Capability | Implementation | Civilization's counterpart |
 |---|---|---|
 | **Create** | Opens new AIs via tmux (types `claude`, presses Enter - like a human would) | Birth |
@@ -83,6 +87,8 @@ Driver era (fixed scripts steering AI panes)
 
 ## 4. Architecture: Six Institutions on the Foundation
 
+<p align="center"><img src="docs/assets/six-institutions.jpg" alt="Six institutions and the three-window runtime" width="720"></p>
+
 The first three are the Nüwa foundation (Create / Language / History); the
 next three are institutions that grew out of iteration:
 
@@ -102,11 +108,15 @@ judge → dispatch, never executes an attack itself), the **AI legion**
 relaunches a crashed commander with `--continue`, rotates keys, wraps up at
 the buzzer - zero strategy, keep-alive only).
 
+<p align="center"><img src="docs/assets/runtime-tmux.jpg" alt="Live runtime: commander reading the board, soldier mid-mission in tmux" width="860"></p>
+
 Further reading: [docker/commander/SPEC.md](docker/commander/SPEC.md)
 (architecture contract) · [BATTLE-REPORT.md](BATTLE-REPORT.md) (campaign
 retrospective)
 
 ## 5. Results & Emergence
+
+<p align="center"><img src="docs/assets/token-comparison.jpg" alt="Token comparison: 1B vs the runner-up's 4.5B" width="720"></p>
 
 | Team | Score | Flags | Tokens |
 |---|---|---|---|
@@ -136,6 +146,8 @@ retrospective)
 Multi-stage deep-dive chains (an industry report puts their success rate at
 29.5%) were cleared family-wide. Full timeline in
 [BATTLE-REPORT.md](BATTLE-REPORT.md).
+
+<p align="center"><img src="docs/assets/score-curve.jpg" alt="Live score curve: sapper-v2's climb" width="720"></p>
 
 ## 6. Quick Start
 
@@ -182,6 +194,8 @@ join us; we may try to include it in a future release.
 
 Credits: the intent-graph idea comes from [Cairn by Lèxiào](https://github.com/oritera/Cairn);
 thanks to TSecBench and GeekCon for the battlegrounds.
+
+<p align="center"><img src="docs/assets/ape-stargazing.jpg" alt="The first time an AI ape looked up at the stars" width="480"></p>
 
 **Author**: N1nEmAn · VarFusion Lab ｜ WeChat: 未知聚变 (VarFusion)
 

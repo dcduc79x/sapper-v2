@@ -1,5 +1,7 @@
 # sapper-v2 - 自主渗透军团
 
+<p align="center"><img src="docs/assets/banner.jpg" alt="sapper-v2 - 女娲测试：AI 猿人第一次仰望星空（80.18/100 初赛冠军）" width="860"></p>
+
 > 第三届腾讯云智能攻防挑战赛线上赛**冠军**（634 支队伍 · 80.18/100 · 8 小时全程无人值守）·
 > GeekCon 2026 AI 挑战赛**一等奖**
 >
@@ -30,6 +32,8 @@ sapper，就是女娲基座在渗透场景的一次初级阶段实战。
 
 ## 二、基座：三样能力
 
+<p align="center"><img src="docs/assets/foundation-three-capabilities.jpg" alt="三能力基座：造人 / 语言 / 历史（事实意图图）" width="720"></p>
+
 | 能力 | 实现 | 文明对应物 |
 |---|---|---|
 | **造人** | 通过 tmux 打开新的 AI（像人敲下 `claude` 回车一样） | 生育 |
@@ -57,6 +61,8 @@ sapper，就是女娲基座在渗透场景的一次初级阶段实战。
 
 ## 四、架构：基座之上长出的六件套
 
+<p align="center"><img src="docs/assets/six-institutions.jpg" alt="六件套架构与三窗运行时" width="720"></p>
+
 前三件是女娲的基座（造人/语言/历史），后三件是迭代中长出来的制度：
 
 - **法律**--指挥官的渗透军规（先易后难的并行调度、瓶颈期回头收割残值、止损纪律）。全部写在 [docker/commander/SKILL.md](docker/commander/SKILL.md)（426 行，比赛原版军规）。
@@ -65,9 +71,13 @@ sapper，就是女娲基座在渗透场景的一次初级阶段实战。
 
 运行时只有三个窗口：**指挥官**（读板 → 判断 → 派单，永不亲手执行）、**AI 军团**（tmux 窗格里的将军与士兵）、**看门狗**（纯脚本：指挥官崩了自动 `--continue` 拉起、key 轮换、到点收卷--零策略，只保活）。
 
+<p align="center"><img src="docs/assets/runtime-tmux.jpg" alt="实际运行：tmux 三窗--指挥官读板、士兵执行任务" width="860"></p>
+
 深入阅读：[docker/commander/SPEC.md](docker/commander/SPEC.md)（架构契约）· [BATTLE-REPORT.md](BATTLE-REPORT.md)（战役复盘）
 
 ## 五、战绩与涌现
+
+<p align="center"><img src="docs/assets/token-comparison.jpg" alt="token 消耗对比：10 亿 vs 第二名 45 亿" width="720"></p>
 
 | 队伍 | 分数 | flag | token |
 |---|---|---|---|
@@ -85,6 +95,8 @@ sapper，就是女娲基座在渗透场景的一次初级阶段实战。
 - **同构迁移**：指挥官通读全题识别同构家族，把成熟打法蒸馏进新兵任务书--后期 **3 分钟解一题**。
 
 多阶段长链渗透（行业报告称成功率仅 29.5% 的题型）被整族打穿。全过程见 [BATTLE-REPORT.md](BATTLE-REPORT.md)。
+
+<p align="center"><img src="docs/assets/score-curve.jpg" alt="实时分数曲线：sapper-v2 的爬升轨迹" width="720"></p>
 
 ## 六、快速开始
 
@@ -116,6 +128,8 @@ docker run -d --name sapper ... sapper:latest
 - **更多场景**：女娲基座不限于渗透。办公、研究、任何长周期协作场景，都值得在其上迭代--**接下来的仰望，由各位完成。**
 
 致谢：意图图思想来自 [淚笑的 Cairn](https://github.com/oritera/Cairn)；感谢 TSecBench 与 GeekCon 提供的战场。
+
+<p align="center"><img src="docs/assets/ape-stargazing.jpg" alt="AI 猿人第一次仰望星空" width="480"></p>
 
 **作者**：N1nEmAn · 未知聚变实验室（VarFusion Lab）｜公众号：未知聚变
 
