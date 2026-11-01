@@ -38,7 +38,7 @@ sapper，就是女娲基座在渗透场景的一次初级阶段实战。
 |---|---|---|
 | **造人** | 通过 tmux 打开新的 AI（像人敲下 `claude` 回车一样） | 生育 |
 | **语言** | 在彼此输入框里打字、回车 | 交谈 |
-| **历史** | 分层事实意图图（[nuwabase · 女娲基座](https://github.com/N1nEmAn/nvwabase)，意向图思想参考 [淚笑的 Cairn](https://github.com/oritera/Cairn)） | 石碑 |
+| **历史** | 分层事实意图图（[nvwabase · 女娲基座](https://github.com/N1nEmAn/nvwabase)） | 石碑 |
 
 历史分三层：**标题 / 摘要 / 证据文档**--看标题知概况，需要时再下钻，像人查图书馆档案。这解决了单一字符串事实图的两个问题：一处错处处错，以及上下文的无谓损耗。
 
@@ -145,7 +145,7 @@ docker run -d --name sapper ... sapper:latest
 - **示踪剂共建**：去中心化签名 / 多通道冗余标记 / 防守方零密钥验证--欢迎 issue 讨论
 - **更多场景**：女娲基座不限于渗透。办公、研究、任何长周期协作场景，都值得在其上迭代--**接下来的仰望，由各位完成。**
 
-致谢：意图图思想来自 [淚笑的 Cairn](https://github.com/oritera/Cairn)；感谢 TSecBench 与 GeekCon 提供的战场。
+致谢：感谢 [淚笑的 Cairn](https://github.com/oritera/Cairn)--在"怎么给 AI 记历史"这个问题上，他们的做法给了我们很好的启发；感谢 TSecBench 与 GeekCon 提供的战场。
 
 <p align="center"><img src="docs/assets/ape-stargazing.jpg" alt="AI 猿人第一次仰望星空" width="480"></p>
 

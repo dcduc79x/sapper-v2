@@ -55,7 +55,7 @@ arena, at its primary stage.
 |---|---|---|
 | **Create** | Opens new AIs via tmux (types `claude`, presses Enter - like a human would) | Birth |
 | **Language** | Types into each other's input boxes, presses Enter | Speech |
-| **History** | Layered fact-intent graph ([nuwabase · the Nüwa Foundation](https://github.com/N1nEmAn/nvwabase); intent-graph idea credited to [Cairn by Lèxiào](https://github.com/oritera/Cairn)) | The stele |
+| **History** | Layered fact-intent graph ([nvwabase · the Nüwa Foundation](https://github.com/N1nEmAn/nvwabase)) | The stele |
 
 History has three layers: **title / summary / evidence document** - read the
 title for the gist, drill down when needed, like using a library. This fixes
@@ -222,8 +222,9 @@ join us; we may try to include it in a future release.
   civilization grows. **The next time an ape looks up at the stars, let it
   be yours.**
 
-Credits: the intent-graph idea comes from [Cairn by Lèxiào](https://github.com/oritera/Cairn);
-thanks to TSecBench and GeekCon for the battlegrounds.
+Thanks to [Cairn by Lèxiào](https://github.com/oritera/Cairn) - when we
+needed a way to record history for AI agents, their approach was a great
+reference; thanks to TSecBench and GeekCon for the battlegrounds.
 
 <p align="center"><img src="docs/assets/ape-stargazing.jpg" alt="The first time an AI ape looked up at the stars" width="480"></p>
 
