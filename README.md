@@ -55,7 +55,7 @@ arena, at its primary stage.
 |---|---|---|
 | **Create** | Opens new AIs via tmux (types `claude`, presses Enter - like a human would) | Birth |
 | **Language** | Types into each other's input boxes, presses Enter | Speech |
-| **History** | Layered fact-intent graph ([nuwabase · the Nüwa Foundation](https://github.com/N1nEmAn/nuwabase); intent-graph idea credited to [Cairn by Lèxiào](https://github.com/oritera/Cairn)) | The stele |
+| **History** | Layered fact-intent graph ([nuwabase · the Nüwa Foundation](https://github.com/N1nEmAn/nvwabase); intent-graph idea credited to [Cairn by Lèxiào](https://github.com/oritera/Cairn)) | The stele |
 
 History has three layers: **title / summary / evidence document** - read the
 title for the gist, drill down when needed, like using a library. This fixes
