@@ -70,6 +70,34 @@ still belongs to humans.
 than us. Piling rules on an AI is a leash; acknowledging its intelligence and
 giving it the foundation of a civilization is how it reaches its potential.
 
+### 🏗️ Take the Foundation: nvwabase
+
+The History pillar is independently open-sourced as
+**[nvwabase · the Nüwa Foundation](https://github.com/N1nEmAn/nvwabase)** -
+**free for anyone, any scenario, any agent**. Not limited to pentest, not
+limited to sapper, not limited to Claude Code. Offices, research, engineering,
+any long-horizon multi-agent work - iterate your own civilization on it.
+
+```bash
+git clone https://github.com/N1nEmAn/nvwabase
+cd nvwabase && bash install.sh          # pure Python stdlib, zero deps
+nvwabase setup --goal "your long-horizon goal" --agents
+nvwabase status                          # board & ready-to-work frontier
+```
+
+Three core commands turn any agent into a member of a civilization:
+- **`nvwabase fact "confirmed observation"`** - external memory: AI sessions
+  die, the graph survives, successors read the graph and take over
+- **`nvwabase intent --from f001 "what to do"`** - units of work: new intents
+  proposed from existing facts
+- **`nvwabase dispatch reason`** - commander proposes / executor works /
+  verifier checks; every conclusion is written back to the graph
+
+Any agent that can run shell commands (Claude Code / Codex / Gemini /
+custom scripts) can read and write the same graph via the `nvwabase` CLI -
+**the foundation doesn't pick agents; agents don't pick scenarios.** See the
+[nvwabase README](https://github.com/N1nEmAn/nvwabase).
+
 ## 3. From Foundation to Legion: 18 Versions
 
 Iterated 18 versions on Tencent's v1bench training ground:

@@ -46,6 +46,24 @@ sapper，就是女娲基座在渗透场景的一次初级阶段实战。
 
 **为什么不给它更多规则？** 因为大模型已经比人聪明得多。给 AI 定满规则反而是束缚；承认它的智力，给它文明的地基，才能发挥它最大的潜力。
 
+### 🏗️ 把基座拿去用：nvwabase
+
+这个"历史"支柱已独立开源为 **[nvwabase · 女娲基座](https://github.com/N1nEmAn/nvwabase)**--**任何人、任何场景、任何 agent 都可以免费拿去用**，不限于渗透测试、不限于 sapper、不限于 Claude Code。办公协作、研究实验、工程项目、任何长周期多智能体工作，都可以在其上迭代出你自己的分工与文明。
+
+```bash
+git clone https://github.com/N1nEmAn/nvwabase
+cd nvwabase && bash install.sh          # 纯 Python 标准库，零依赖
+nvwabase setup --goal "你的长周期目标" --agents
+nvwabase status                          # 看板与可干前沿
+```
+
+三个核心命令把任何 agent 变成文明的成员：
+- **`nvwabase fact "确认的观察"`**--外部记忆：AI 个体死了，图还在，继任者读图接岗
+- **`nvwabase intent --from f001 "想干什么"`**--工作单元：基于既有事实提出新意图
+- **`nvwabase dispatch reason`**--指挥官提议 / 执行者干活 / 验证者复核，结论全部回写图
+
+任何能执行 shell 命令的 agent（Claude Code / Codex / Gemini / 自研脚本）都可以直接调用 `nvwabase` CLI 读写同一张图--**基座不挑 agent，agent 不挑场景**。详见 [nvwabase README](https://github.com/N1nEmAn/nvwabase)。
+
 ## 三、从基座到军团：18 个版本
 
 在腾讯 v1bench 训练场上迭代 18 版，路径大致是：
