@@ -32,7 +32,8 @@ already pass the classic Turing test. The Nüwa Test asks the next question:
 > Give an AI a single axiom - **"Survival is civilization's first need;
 > individuals may perish, but civilization must propagate."**
 > If, on top of this axiom, it develops division of labor and cooperation and
-> forms a civilization of its own, the test is passed - just as passing the
+> forms a **new force independent of humanity** - a civilization that can
+> survive and propagate on its own - the test is passed, just as passing the
 > Turing test once marked the birth of an artificial intelligence.
 
 It has two stages. In the **primary stage** the AI is not yet smart enough, so
