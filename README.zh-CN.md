@@ -29,7 +29,11 @@ sapper 的价值不在任何单个 Agent，而在**组织多个 Agent 协同作�
 
 **本项目为竞赛场景设计**（腾讯智能攻防赛 CTF）。如果你想在自己的场景（办公、研究、工程、任何长周期协作）用这套机制：
 - **从 [nvwabase · 女娲基座](https://github.com/N1nEmAn/nvwabase) 起步**--三能力齐备的通用底座，不带渗透军规，直接迭代出你自己的分工
-- **或者在本项目上改**--把 `docker/commander/SKILL.md`（426 行军规）换成你场景的策略，其余机制原样保留
+- **或者在本项目上改**--但要改的**不止是军规**，环境配置同样必须动：
+  - `docker/commander/SKILL.md`（426 行军规）→ 换成你场景的策略
+  - `BENCHMARK_BASE_URL` 等平台环境变量 → 竞赛引擎开机预检会**硬校验**平台 API（所以只配模型 key、不配平台地址就会报 `BENCHMARK_BASE_URL is not set`）；脱离竞赛平台自用，需要自己提供/占位这套平台接口
+  - 模型网关与密钥环境变量（`ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` / `SAPPER_MODEL` / `SAPPER_KEY_POOL`…）→ 换成你自己的模型服务
+  - watchdog 的预算/死线、报告模板 → 按你的场景调整
 - 反正有 AI 嘛，可以灵活变化--改军规的军规也是让 AI 帮你写
 
 ---
