@@ -250,6 +250,17 @@ Adversarial assumptions (expert stripping, framing) call for cryptographic
 design, which needs community co-building - our own capacity is limited, so
 join us; we may try to include it in a future release.
 
+## Star History
+
+<p align="center">
+  <a href="https://star-history.com/#N1nEmAn/sapper-v2&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=N1nEmAn/sapper-v2&type=Date" />
+      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=N1nEmAn/sapper-v2&type=Date" width="640" />
+    </picture>
+  </a>
+</p>
+
 ## 8. Roadmap & Credits
 
 - **Taggant co-building**: decentralized signatures / redundant multi-channel

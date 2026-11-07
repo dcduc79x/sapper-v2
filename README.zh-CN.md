@@ -170,6 +170,17 @@ docker load < sapper-v18-mixed.tar.gz
 
 我们提出**示踪剂（taggant）**机制的构想：在开源渗透 harness 中强耦合地嵌入标记--合法渗透时无害（IP/用户名泄露无所谓），非法渗透时信息会泄露给**受害者**、支撑溯源。敌手假设（高手拆解、栽赃）需要密码学层面的设计，这需要社区共建--我们能力有限，欢迎一起做，并可能在后续版本中尝试加入。
 
+## Star 轨迹
+
+<p align="center">
+  <a href="https://star-history.com/#N1nEmAn/sapper-v2&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=N1nEmAn/sapper-v2&type=Date" />
+      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=N1nEmAn/sapper-v2&type=Date" width="640" />
+    </picture>
+  </a>
+</p>
+
 ## 八、路线图与致谢
 
 - **示踪剂共建**：去中心化签名 / 多通道冗余标记 / 防守方零密钥验证--欢迎 issue 讨论
