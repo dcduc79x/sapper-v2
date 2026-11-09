@@ -170,6 +170,12 @@ docker load < sapper-v18-mixed.tar.gz
 
 我们提出**示踪剂（taggant）**机制的构想：在开源渗透 harness 中强耦合地嵌入标记--合法渗透时无害（IP/用户名泄露无所谓），非法渗透时信息会泄露给**受害者**、支撑溯源。敌手假设（高手拆解、栽赃）需要密码学层面的设计，这需要社区共建--我们能力有限，欢迎一起做，并可能在后续版本中尝试加入。
 
+## 社区
+
+感谢 [**LINUX DO**](https://linux.do) 社区的关注与讨论--不少有价值的反馈和 issue 都来自这里的同学 🙌
+
+[![LINUX DO](https://img.shields.io/badge/LINUX.DO-社区-1E9FFF?style=flat-square)](https://linux.do)
+
 ## Star 轨迹
 
 <p align="center">
