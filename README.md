@@ -256,6 +256,12 @@ Thanks to the [**LINUX DO**](https://linux.do) community for the attention and d
 
 [![LINUX DO](https://img.shields.io/badge/LINUX.DO-community-1E9FFF?style=flat-square)](https://linux.do)
 
+## Community
+
+The author grew up in the [**LINUX DO**](https://linux.do) community - with thanks.
+
+[![LINUX DO](https://img.shields.io/badge/LINUX.DO-community-1E9FFF?style=flat-square)](https://linux.do)
+
 ## Star History
 
 <p align="center">

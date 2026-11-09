@@ -176,6 +176,12 @@ docker load < sapper-v18-mixed.tar.gz
 
 [![LINUX DO](https://img.shields.io/badge/LINUX.DO-社区-1E9FFF?style=flat-square)](https://linux.do)
 
+## 社区
+
+作者在 [**LINUX DO**](https://linux.do) 社区获得成长，特此致谢。
+
+[![LINUX DO](https://img.shields.io/badge/LINUX.DO-社区-1E9FFF?style=flat-square)](https://linux.do)
+
 ## Star 轨迹
 
 <p align="center">
