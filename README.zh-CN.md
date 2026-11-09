@@ -172,12 +172,6 @@ docker load < sapper-v18-mixed.tar.gz
 
 ## 社区
 
-感谢 [**LINUX DO**](https://linux.do) 社区的关注与讨论--不少有价值的反馈和 issue 都来自这里的同学 🙌
-
-[![LINUX DO](https://img.shields.io/badge/LINUX.DO-社区-1E9FFF?style=flat-square)](https://linux.do)
-
-## 社区
-
 作者在 [**LINUX DO**](https://linux.do) 社区获得成长，特此致谢。
 
 [![LINUX DO](https://img.shields.io/badge/LINUX.DO-社区-1E9FFF?style=flat-square)](https://linux.do)
