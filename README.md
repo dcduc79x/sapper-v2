@@ -43,6 +43,24 @@ scenario (office, research, engineering, any long-horizon cooperative work):
   - watchdog budget/deadline and report templates → adjust to your scenario
 - With AI, everything is flexible - even the doctrine can be rewritten with AI's help
 
+### Not a tool - a fruit on a tree
+
+**sapper is not the tree; it is the first fruit the tree has borne.** The tree
+is [the Nüwa Foundation](https://github.com/N1nEmAn/nvwabase) and the idea of
+the Nüwa Test: give AIs the three capabilities - Create, Language, History -
+plus one axiom of survival, and see what grows.
+
+The fruit's defining trait is **evolvability**: its doctrine, ranks, and
+tactics all come from "every post-mortem feeds the next legislation" - from
+the competition build to the pentest edition, each generation grew stronger
+than the last. It is designed to keep growing.
+
+So open-sourcing it was never just about one more autonomous pentest tool.
+The real invitation is this: **grow your own fruit on sapper-v2 or the Nüwa
+Foundation.** Swap the doctrine for office teamwork, research pipelines,
+software engineering - any long-horizon cooperative cause. Your scenario is
+this tree's next fruit.
+
 ---
 
 sapper is not a smarter single agent. It is a legion of AIs that divide labor,
