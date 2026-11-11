@@ -15,6 +15,13 @@
 
 **⚠️ AUTHORIZED SECURITY TESTING ONLY - see [DISCLAIMER.md](DISCLAIMER.md).**
 
+## Meet sapper in 60 seconds
+
+<p align="center">
+  <a href="https://github.com/N1nEmAn/sapper-v2/releases/download/v18-champion/sapper-v2_en.mp4"><img src="docs/assets/video-poster-en.jpg" alt="sapper intro video (60s)" width="640"></a>
+</p>
+<p align="center">🎬 <a href="https://github.com/N1nEmAn/sapper-v2/releases/download/v18-champion/sapper-v2_en.mp4">English intro</a> ｜ <a href="https://github.com/N1nEmAn/sapper-v2/releases/download/v18-champion/sapper-v2_zh.mp4">中文宣传片</a></p>
+
 ## What this is (and isn't)
 
 **sapper is a multi-agent orchestration harness, not a single agent.** It does
