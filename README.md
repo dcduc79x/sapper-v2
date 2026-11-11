@@ -15,6 +15,12 @@
 
 **⚠️ AUTHORIZED SECURITY TESTING ONLY - see [DISCLAIMER.md](DISCLAIMER.md).**
 
+## Meet sapper in 60 seconds
+
+https://github.com/user-attachments/assets/1560dc0c-2c92-42b8-a42f-698848fb5878
+
+🎬 中文版：[中文宣传片](https://github.com/user-attachments/assets/f300280a-4597-40a3-b036-8f235fbee00e)
+
 ## What this is (and isn't)
 
 **sapper is a multi-agent orchestration harness, not a single agent.** It does
