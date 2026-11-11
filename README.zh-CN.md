@@ -15,6 +15,13 @@
 
 **⚠️ 仅限授权安全测试用途--见 [DISCLAIMER.md](DISCLAIMER.md)。**
 
+## 60 秒认识 sapper
+
+<p align="center">
+  <a href="https://github.com/N1nEmAn/sapper-v2/releases/download/v18-champion/sapper-v2_zh.mp4"><img src="docs/assets/video-poster-zh.jpg" alt="sapper 中文宣传片（60秒）" width="640"></a>
+</p>
+<p align="center">🎬 <a href="https://github.com/N1nEmAn/sapper-v2/releases/download/v18-champion/sapper-v2_zh.mp4">中文宣传片</a> ｜ <a href="https://github.com/N1nEmAn/sapper-v2/releases/download/v18-champion/sapper-v2_en.mp4">English intro</a></p>
+
 ## 先说清楚：这是什么
 
 **sapper 是一个多 Agent 调度机制（harness），不是一个 Agent。** 它不绑定任何特定的 AI 模型或 CLI--你可以随意替换每个角色背后的 Agent 和模型：
