@@ -15,6 +15,12 @@
 
 **⚠️ 仅限授权安全测试用途--见 [DISCLAIMER.md](DISCLAIMER.md)。**
 
+## 60 秒认识 sapper
+
+https://github.com/user-attachments/assets/f300280a-4597-40a3-b036-8f235fbee00e
+
+🎬 英文版：[English intro](https://github.com/user-attachments/assets/1560dc0c-2c92-42b8-a42f-698848fb5878)
+
 ## 先说清楚：这是什么
 
 **sapper 是一个多 Agent 调度机制（harness），不是一个 Agent。** 它不绑定任何特定的 AI 模型或 CLI--你可以随意替换每个角色背后的 Agent 和模型：
