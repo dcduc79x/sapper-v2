@@ -21,3 +21,8 @@ select = [
     "RUF100", "SIM115", "F541", "SIM102", "SIM117", "SIM103",
     "UP031", "UP037", "S110", "I001", "F401",
 ]
+
+# The compatibility bridge intentionally re-exports every facade name and
+# keeps a hand-ordered import block; neither is lintable with the pinned rules.
+[tool.ruff.lint.per-file-ignores]
+"lib/sapper_pkg/commands/_shared.py" = ["F401", "I001"]

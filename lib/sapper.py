@@ -41,7 +41,13 @@ _LIB_DIR = str(Path(__file__).resolve().parent)
 if _LIB_DIR not in sys.path:
     sys.path.insert(0, _LIB_DIR)
 
-from sapper_pkg.errors import FGError  # noqa: I001 - must follow the sys.path bootstrap
+from sapper_pkg.config import (  # noqa: I001 - ordered before bootstrap
+    AI_CHANNEL_NAME,
+    DEFAULT_STORE,
+    PEER_NAME_RE,
+    PEERS_FILE,
+)
+from sapper_pkg.errors import FGError
 from sapper_pkg.model import (
     GOAL_ID,
     FACT_KINDS,
@@ -49,7 +55,7 @@ from sapper_pkg.model import (
     _VALID_NODE_ID_RE,  # noqa: F401 - facade re-export
     normalize_fact_kind,
     normalize_fact_data,  # noqa: F401 - facade re-export
-    parse_kv_pairs,
+    parse_kv_pairs,  # noqa: F401 - facade re-export
     now_iso,
 )
 from sapper_pkg.paths import TEMPLATES_DIR
@@ -59,7 +65,7 @@ from sapper_pkg.storage import (
     _UNSET,  # noqa: F401 - facade re-export
     Store,
     read_json,
-    _validate_lookup_id,
+    _validate_lookup_id,  # noqa: F401 - facade re-export
     _read_node,  # noqa: F401 - facade re-export
     _check_conclusion_permission,  # noqa: F401 - facade re-export
     _read_node_files,  # noqa: F401 - facade re-export
@@ -76,20 +82,20 @@ from sapper_pkg.engine import (
     _run_engine_once,  # noqa: F401 - facade re-export
 )
 from sapper_pkg.graph import (
-    is_open,
+    is_open,  # noqa: F401 - facade re-export
     is_ready,  # noqa: F401 - facade re-export
     build_graph_view,
-    validate_graph,
+    validate_graph,  # noqa: F401 - facade re-export
     frontier,
-    recall,
+    recall,  # noqa: F401 - facade re-export
     _recall_tokenize,  # noqa: F401 - facade re-export
     _recall_score,  # noqa: F401 - facade re-export
 )
 from sapper_pkg.render import (
-    render_status,
-    render_recall,
+    render_status,  # noqa: F401 - facade re-export
+    render_recall,  # noqa: F401 - facade re-export
     render_history_block,  # noqa: F401 - facade re-export
-    render_graph_text,
+    render_graph_text,  # noqa: F401 - facade re-export
     render_prompt,
     render_intent_prompt,
     _replace_placeholders,
@@ -103,10 +109,6 @@ from sapper_pkg.render import (
 
 __version__ = "1.0.0"
 
-DEFAULT_STORE = ".sapper"
-PEERS_FILE = "ai-peers.json"
-AI_CHANNEL_NAME = "ai-channel.txt"
-PEER_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 # --------------------------------------------------------------------------- #
@@ -157,153 +159,22 @@ def _assert_safe_store_root(root: Path, action: str) -> None:
         )
 
 
-def cmd_init(args) -> int:
-    store = Store(Path(args.store))
-    if store.exists() and not args.force:
-        raise FGError(f"graph exists at {store.root}; use --force to overwrite")
-    if args.force and store.root.exists():
-        import shutil
-
-        _assert_safe_store_root(store.root, "overwrite")
-        # `--force` is an explicit destructive operation.  Do not hold the
-        # graph's lock while deleting that lock file itself; another process
-        # waiting on the old inode would otherwise be detached from the new
-        # graph.  Normal (non-force) initialization is serialized in Store.init.
-        shutil.rmtree(store.root)
-    origin = args.origin or ""
-    goal = args.goal
-    if not goal:
-        raise FGError("--goal is required")
-    store.init(origin=origin, goal=goal)
-    print(f"initialized fact graph at {store.root}")
-    print(f"goal: {goal}")
-    return 0
 
 
-def cmd_status(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    print(render_status(store))
-    return 0
 
 
-def cmd_graph(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    if args.format == "json":
-        print(json.dumps(build_graph_view(store), ensure_ascii=False, indent=2))
-    else:
-        print(render_graph_text(store))
-    return 0
 
 
-def cmd_validate(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    errors = validate_graph(store)
-    if errors:
-        print(f"graph invalid: {len(errors)} error(s)")
-        for error in errors:
-            print(f"  - {error}")
-        return 1
-    print(f"graph valid: {store.root}")
-    return 0
 
 
-def cmd_frontier(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    fr = frontier(store)
-    if not fr:
-        print("(no ready intents)")
-        return 0
-    for i in fr:
-        mark = ""
-        if i["status"] == "claimed":
-            mark = f"  [claimed: {i['worker']}]"
-        elif i["requires_confirmation"] and not i["confirmed_at"]:
-            mark = "  [needs confirmation]"
-        print(f"{i['id']}\tfrom={','.join(i['from'])}\t{i['description']}{mark}")
-    return 0
 
 
-def cmd_pick(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    fr = frontier(store)
-    worker = args.worker or _worker_id("agent") if args.claim else None
-    pool = []
-    if fr:
-        # `frontier` shows claimed work first for observability, but a worker
-        # asking to claim should skip another worker's lease and choose the
-        # next unclaimed item instead of failing on an unrelated lease.
-        pool = [
-            i
-            for i in fr
-            if not args.claim or not i.get("worker") or i.get("worker") == worker
-        ]
-    if not pool and args.any:
-        # escape hatch: include intents not yet ready (e.g. awaiting confirmation)
-        pool = [i for i in store.list_intents() if is_open(i)]
-    if not pool:
-        print("(nothing ready; pass --any to include unconfirmed/blocked open intents)")
-        return 0
-    chosen = pool[0]
-    if args.claim:
-        assert worker is not None
-        chosen = store.claim_intent(chosen["id"], worker)
-    print(chosen["id"])
-    return 0
 
 
-def cmd_fact(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    fact = store.add_fact(
-        description=args.description,
-        creator=args.creator,
-        source_intent=args.from_intent,
-        title=args.title,
-        doc=_read_doc_arg(args),
-        kind=args.kind,
-        data=parse_kv_pairs(args.data),
-    )
-    print(fact["id"])
-    if args.json:
-        print(json.dumps(fact, ensure_ascii=False))
-    return 0
 
 
-def cmd_intent(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    from_ids = parse_from(args.from_)
-    intent = store.add_intent(
-        from_ids=from_ids,
-        description=args.description,
-        creator=args.creator,
-        requires_confirmation=args.confirm,
-        title=args.title,
-        doc=_read_doc_arg(args),
-    )
-    print(intent["id"])
-    if args.json:
-        print(json.dumps(intent, ensure_ascii=False))
-    return 0
 
 
-def cmd_hint(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    if args.list:
-        for h in store.list_hints():
-            print(f"{h['id']}\t({h['creator']})\t{h['content']}")
-        return 0
-    if not args.content:
-        raise FGError("hint content required (or use --list)")
-    h = store.add_hint(content=args.content, creator=args.creator)
-    print(h["id"])
-    return 0
 
 
 # --------------------------------------------------------------------------- #
@@ -347,96 +218,11 @@ def _find_flag_fact(store: Store, value: str) -> dict | None:
     return None
 
 
-def cmd_flag(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    value = args.value.strip()
-    if not value:
-        raise FGError("flag value cannot be empty")
-    existing = _find_flag_fact(store, value)
-    if existing is not None:
-        d = existing.get("data") or {}
-        raise FGError(
-            f"flag already recorded as {existing['id']} "
-            f"(status={d.get('status', 'recorded')}, challenge={d.get('challenge', '?')})"
-        )
-    challenge = (args.challenge or "").strip()
-    description = f"flag captured: {value}" + (
-        f" (challenge {challenge})" if challenge else ""
-    )
-    fact = store.add_fact(
-        description=description,
-        creator=args.creator,
-        source_intent=None,
-        title=args.title or "flag",
-        kind="flag",
-        data={"value": value, "challenge": challenge, "status": "recorded"},
-    )
-    print(f"{fact['id']} recorded")
-    if not args.submit:
-        print("(not submitted; pass --submit to send it via the arena API)")
-        return 0
-    client = _arena_client(store)
-    if not challenge:
-        print(
-            "sapper: warning: no --challenge given; submit endpoint may need it",
-            file=sys.stderr,
-        )
-    try:
-        reply = client.submit_flag(challenge or "-", value)
-    except FGError:
-        raise
-    except Exception as exc:  # ArenaError subclasses Exception
-        store.update_flag_fact(fact["id"], "rejected", str(exc))
-        raise FGError(
-            f"submit failed, flag kept as {fact['id']} (recorded): {exc}"
-        ) from exc
-    raw = json.dumps(reply.get("result", {}), ensure_ascii=False)
-    accepted = reply.get("status") == 200
-    status = "submitted" if accepted else "rejected"
-    store.update_flag_fact(fact["id"], status, raw[:500])
-    print(f"{fact['id']} {status}: {raw[:300]}")
-    return 0 if accepted else 1
 
 
 # --------------------------------------------------------------------------- #
 # arena - competition platform bridge (challenges / start / stop / submit / hint)
 # --------------------------------------------------------------------------- #
-def cmd_arena(args) -> int:
-    store = Store(Path(args.store))
-    if args.action == "init":
-        arena = _load_arena_module()
-        path = arena.ArenaClient.config_path(store.root)
-        if path.exists():
-            raise FGError(f"arena config already exists: {path}")
-        written = arena.ArenaClient.write_template(store.root)
-        print(
-            f"wrote {written} - fill in the official API base_url/endpoints, "
-            f"then export SAPPER_ARENA_TOKEN"
-        )
-        return 0
-    store.require()
-    client = _arena_client(store)
-    action = args.action
-    if action == "challenges":
-        reply = client.list_challenges()
-    elif action == "start":
-        reply = client.start_challenge(args.challenge_id)
-    elif action == "stop":
-        reply = client.close_challenge(args.challenge_id)
-    elif action == "submit":
-        reply = client.submit_flag(args.challenge_id, args.flag)
-    elif action == "hint":
-        print(
-            "sapper: note - official rules deduct score for hints (-10%); "
-            "only ask when genuinely stuck",
-            file=sys.stderr,
-        )
-        reply = client.get_hint(args.challenge_id)
-    else:
-        raise FGError(f"unknown arena action {action!r}")
-    print(json.dumps(reply.get("result", {}), ensure_ascii=False, indent=2))
-    return 0
 
 
 # --------------------------------------------------------------------------- #
@@ -546,19 +332,6 @@ _KB_ACTIONS = {
 }
 
 
-def cmd_kb(args) -> int:
-    module, kb = _kb(args)
-    handler = _KB_ACTIONS.get(args.action)
-    if handler is None:
-        raise FGError(f"unknown kb action {args.action!r}")
-    try:
-        if handler is _kb_import:
-            return handler(args, module, kb)
-        if handler is _kb_root:
-            return handler(kb)
-        return handler(args, kb)
-    except module.KBError as exc:
-        raise FGError(str(exc)) from exc
 
 
 # --------------------------------------------------------------------------- #
@@ -661,124 +434,6 @@ def _bench_submit_recorded(store: Store, code: str) -> int:
     return submitted
 
 
-def cmd_bench(args) -> int:
-    """Drive the TSecBench Challenges API end-to-end with sapper per challenge.
-
-    Loop: list challenges -> for each unfinished (respecting the active
-    container cap) start -> seed a graph -> run `sapper auto` -> submit the
-    flags it captured -> close the container. Repeat until all are complete,
-    the deadline passes, or a stop condition (task ended) is hit.
-    """
-    root = Path(args.root)
-    root.mkdir(parents=True, exist_ok=True)
-    deadline = deadline_from_args(args)
-    templates_dir = _resolve_templates_dir(args)
-    cli = [sys.executable, str(Path(__file__).resolve())]
-    engine_args = ["--model", args.model]
-    if args.skip_permissions:
-        engine_args.append("--skip-permissions")
-    if args.verify:
-        engine_args.append("--verify")
-
-    client = _arena_client_for_root(root)
-    print(f"[bench] arena {client.base_url}")
-    try:
-        challenges = client.list_challenges()
-    except FGError as exc:
-        print(f"[bench] cannot list challenges: {exc}")
-        return 1
-    todo = [c for c in challenges if not c.get("is_completed")]
-    print(f"[bench] {len(challenges)} challenges, {len(todo)} unfinished")
-
-    if args.parallel > 1:
-        return _bench_parallel(args, client, root, cli, engine_args, todo, deadline)
-
-    rounds = 0
-    while todo and (deadline is None or time.time() < deadline):
-        rounds += 1
-        progressed = False
-        for ch in list(todo):
-            if deadline is not None and time.time() >= deadline:
-                print("[bench] deadline reached")
-                break
-            code = str(ch.get("unique_code"))
-            store = _bench_store(root, code)
-            try:
-                started = client.start_challenge(code)
-            except FGError as exc:
-                if "max active" in str(exc).lower():
-                    print(
-                        "[bench] active-container cap reached; closing the oldest and retrying next round"
-                    )
-                    break
-                print(f"[bench] {code}: cannot start ({exc})")
-                continue
-            addrs = list(started.get("container_addr") or [])
-            print(f"\n[bench] {code} started -> {addrs or '(no addr)'}")
-            try:
-                _bench_prepare_graph(store, ch, started, addrs)
-            except Exception as exc:  # graph problems must not kill the run
-                print(f"[bench] {code}: graph prep failed ({exc}); skipping this round")
-                try:
-                    client.close_challenge(code)
-                except FGError:
-                    pass
-                continue
-            try:
-                cmd = (
-                    cli
-                    + [
-                        "--store",
-                        str(store.root),
-                        "auto",
-                        "--minutes",
-                        str(args.minutes_per_challenge),
-                        "--max-steps",
-                        str(args.max_steps),
-                    ]
-                    + engine_args
-                )
-                subprocess.run(cmd, cwd=str(root / code), check=False)
-                try:
-                    _bench_submit_recorded(store, code)
-                except Exception as exc:
-                    print(
-                        f"[bench] {code}: flag submission failed ({exc}); "
-                        f"flags stay recorded and will retry next round"
-                    )
-                # did we finish it?
-                try:
-                    fresh = {
-                        str(c.get("unique_code")): c for c in client.list_challenges()
-                    }
-                    if fresh.get(code, {}).get("is_completed"):
-                        print(f"[bench] {code} COMPLETE")
-                except FGError:
-                    pass
-            finally:
-                try:
-                    client.close_challenge(code)
-                    print(f"[bench] {code} closed")
-                except FGError as exc:
-                    print(f"[bench] {code} close failed (non-fatal): {exc}")
-            progressed = True
-        try:
-            challenges = client.list_challenges()
-        except FGError as exc:
-            print(f"[bench] cannot refresh challenges: {exc}")
-            break
-        todo = [c for c in challenges if not c.get("is_completed")]
-        if not progressed:
-            print("[bench] no progress this round - stopping")
-            break
-        print(f"[bench] round {rounds}: {len(todo)} still unfinished")
-        time.sleep(args.round_gap_seconds)
-
-    done = len([c for c in challenges if c.get("is_completed")])
-    print(
-        f"[bench] finished: {done}/{len(challenges)} complete after {rounds} round(s)"
-    )
-    return 0
 
 
 def _bench_parallel(args, client, root, cli, engine_args, todo, deadline) -> int:
@@ -1261,31 +916,6 @@ def _command_final_board(root: Path) -> None:
         )
 
 
-def cmd_command(args) -> int:
-    """Field-commander loop: read the board, ask the model where the next
-    time slice goes, run `sapper auto` there, repeat until deadline/stop."""
-    ctx = _command_setup(args)
-    while time.time() < ctx.deadline:
-        workers = _active_workers(ctx.session)
-        rows = [r for r in _board_summary(ctx.root) if r["status"] != "completed"]
-        for r in rows:
-            r["worker"] = "yes" if r["name"] in workers else "-"
-        if not rows and not workers:
-            print("[command] all challenge graphs completed")
-            break
-        if not rows:
-            print(f"[command] waiting on hired workers: {sorted(workers)}")
-            time.sleep(ctx.args.poll_seconds)
-            continue
-        action, target, minutes, note, _remaining = _command_decide(ctx, rows, workers)
-        names = {r["name"] for r in rows}
-        status = _command_apply(ctx, names, action, target, minutes, note)
-        if status == "break":
-            break
-        if status == "continue":
-            continue
-    _command_final_board(ctx.root)
-    return 0
 
 
 # --------------------------------------------------------------------------- #
@@ -1369,295 +999,17 @@ def _fleet_pane_command(cfg: dict, pane: dict, base_dir: Path | None = None) -> 
     return cmd
 
 
-def cmd_fleet(args) -> int:
-    path = Path(args.file)
-    if args.action == "init":
-        if path.exists():
-            raise FGError(f"fleet config already exists: {path}")
-        path.write_text(
-            json.dumps(FLEET_TEMPLATE, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        print(f"wrote {path} - edit deadline/panes, then `sapper fleet up`")
-        return 0
-    if args.action == "up":
-        cfg = _fleet_load(path)
-        session = cfg["session"]
-        if _tmux("has-session", "-t", session, check=False).returncode == 0:
-            raise FGError(
-                f"tmux session {session!r} already exists; `sapper fleet down` first"
-            )
-        _tmux("new-session", "-d", "-s", session)
-        first = True
-        for pane in cfg["panes"]:
-            name = str(pane.get("name") or pane.get("type"))
-            command = _fleet_pane_command(cfg, pane, base_dir=path.resolve().parent)
-            if first:
-                _tmux("rename-window", "-t", f"{session}:0", name)
-                first = False
-            else:
-                _tmux("new-window", "-d", "-t", session, "-n", name)
-            # literal paste via buffer: avoids send-keys eating special chars
-            buf = tempfile.NamedTemporaryFile("w", delete=False, suffix=".sh")
-            buf.write(command + "\n")
-            buf.close()
-            _tmux("load-buffer", buf.name)
-            _tmux("paste-buffer", "-t", f"{session}:{name}")
-            _tmux("send-keys", "-t", f"{session}:{name}", "Enter")
-            os.unlink(buf.name)
-            print(f"[fleet] {name}: {command}")
-        print(
-            f"[fleet] session {session!r} up - detach with Ctrl-b d; "
-            f"loops run unattended. `sapper fleet down` to stop."
-        )
-        return 0
-    if args.action == "down":
-        cfg = _fleet_load(path)
-        session = cfg["session"]
-        if _tmux("has-session", "-t", session, check=False).returncode != 0:
-            print(f"[fleet] session {session!r} not running")
-            return 0
-        _tmux("kill-session", "-t", session)
-        print(f"[fleet] session {session!r} killed")
-        return 0
-    if args.action == "hire":
-        cfg = (
-            _fleet_load(path)
-            if path.exists()
-            else {"session": "sapper-fleet", "root": "runs"}
-        )
-        cfg["_base_dir"] = str(Path.cwd())
-        if not args.target:
-            raise FGError("fleet hire needs --target <challenge>")
-        minutes = args.minutes or 30
-        spawned = _hire_worker(
-            cfg,
-            args.target,
-            minutes,
-            max_steps=args.max_steps or 8,
-            extra=args.extra_args or "",
-        )
-        print(
-            f"[fleet] hire {args.target}: "
-            f"{'worker window w-%s up' % args.target if spawned else 'worker already running'}"
-        )
-        return 0
-    if args.action == "fire":
-        cfg = (
-            _fleet_load(path)
-            if path.exists()
-            else {"session": "sapper-fleet", "root": "runs"}
-        )
-        if not args.target:
-            raise FGError("fleet fire needs --target <challenge>")
-        killed = _fire_worker(cfg["session"], args.target)
-        print(
-            f"[fleet] fire {args.target}: {'released' if killed else 'no worker running'}"
-        )
-        return 0
-    if args.action == "workers":
-        cfg = (
-            _fleet_load(path)
-            if path.exists()
-            else {"session": "sapper-fleet", "root": "runs"}
-        )
-        workers = sorted(_active_workers(cfg["session"]))
-        print("hired workers: " + (", ".join(workers) if workers else "(none)"))
-        return 0
-    if args.action == "status":
-        cfg = _fleet_load(path)
-        session = cfg["session"]
-        if _tmux("has-session", "-t", session, check=False).returncode != 0:
-            print(f"session {session!r}: not running")
-            return 0
-        proc = _tmux(
-            "list-windows",
-            "-t",
-            session,
-            "-F",
-            "#I #W active=#{window_active} #{pane_current_command}",
-        )
-        print(f"session {session!r}:\n{proc.stdout.strip()}")
-        return 0
-    raise FGError(f"unknown fleet action {args.action!r}")
 
 
 # --------------------------------------------------------------------------- #
 # sweep - round-robin `auto` across per-challenge graphs under a runs/ root
 # --------------------------------------------------------------------------- #
-def cmd_sweep(args) -> int:
-    """Drive multiple per-challenge graphs in rotation until deadline.
-
-    Layout: one directory per challenge, each with its own .sapper/ graph:
-
-        runs/
-        ├── c01/.sapper/project.json   goal: capture flag for challenge c01
-        ├── c02/.sapper/project.json
-        └── ...
-
-    Each round gives every unfinished challenge `--minutes-per` of autonomous
-    work (reason -> explore -> ... via `sapper auto`). Stops when the global
-    deadline passes or every graph reaches its goal.
-    """
-    root = Path(args.root)
-    if not root.is_dir():
-        raise FGError(f"sweep root {root} is not a directory")
-    graph_dirs = sorted(p.parent for p in root.glob("*/.sapper/project.json"))
-    if not graph_dirs:
-        raise FGError(f"no */.sapper/project.json found under {root}")
-    deadline = deadline_from_args(args)
-    if deadline is None:
-        raise FGError("sweep needs --minutes or --deadline (the match slot clock)")
-    if args.minutes_per < 1:
-        raise FGError("--minutes-per must be at least 1")
-
-    cli = [sys.executable, str(Path(__file__).resolve()), "auto"]
-    passthrough = ["--model", args.model]
-    if args.skip_permissions:
-        passthrough.append("--skip-permissions")
-    if args.verify:
-        passthrough.append("--verify")
-    if args.templates:
-        passthrough.extend(["--templates", args.templates])
-
-    print(f"[sweep] {len(graph_dirs)} challenge graph(s) under {root}")
-    print(
-        f"[sweep] deadline {datetime.fromtimestamp(deadline).strftime('%H:%M')} "
-        f"({format_time_budget(deadline)})"
-    )
-    while time.time() < deadline:
-        pending = []
-        for d in graph_dirs:
-            try:
-                status = (read_json(d / ".sapper" / "project.json")).get("status")
-            except (json.JSONDecodeError, OSError):
-                status = "active"  # unreadable -> still try to work it
-            if status != "completed":
-                pending.append(d)
-        if not pending:
-            print("[sweep] all challenge graphs completed")
-            break
-        for d in pending:
-            remaining = deadline - time.time()
-            if remaining <= 0:
-                break
-            budget = min(args.minutes_per, max(1, int(remaining // 60)))
-            print(
-                f"\n[sweep] {d.name}: auto for {budget}m "
-                f"({len(pending)} pending, {format_time_budget(deadline)})"
-            )
-            cmd = (
-                cli
-                + [
-                    "--store",
-                    str(d / ".sapper"),
-                    "auto",
-                    "--minutes",
-                    str(budget),
-                    "--max-steps",
-                    str(args.max_steps),
-                ]
-                + passthrough
-            )
-            subprocess.run(cmd, cwd=str(d), check=False)
-
-    done = 0
-    for d in graph_dirs:
-        try:
-            status = (read_json(d / ".sapper" / "project.json")).get("status")
-        except (json.JSONDecodeError, OSError):
-            status = "?"
-        mark = "DONE" if status == "completed" else status
-        print(f"[sweep] {d.name}: {mark}")
-        done += 1 if status == "completed" else 0
-    print(f"[sweep] finished: {done}/{len(graph_dirs)} goals reached")
-    return 0
 
 
-def cmd_show(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    if args.entity == "project":
-        print(json.dumps(store.load_project(), ensure_ascii=False, indent=2))
-        return 0
-    if not args.id:
-        raise FGError(f"show {args.entity} requires an id")
-    if args.entity == "fact":
-        print(json.dumps(store.get_fact(args.id), ensure_ascii=False, indent=2))
-    elif args.entity == "intent":
-        print(json.dumps(store.get_intent(args.id), ensure_ascii=False, indent=2))
-    return 0
 
 
-def cmd_doc(args) -> int:
-    """Read or write a node's detailed document (the third doc layer).
-    `sapper doc f001` prints the doc; `sapper doc f001 --set '<text>'` /
-    `--set-file <path>` writes it. Pass --edit to open $EDITOR."""
-    store = Store(Path(args.store))
-    store.require()
-    _validate_lookup_id(args.id, "node")
-    # Resolve the node (fact or intent) without ever accepting a path-like id.
-    if args.id == GOAL_ID or (store.facts_dir / f"{args.id}.json").exists():
-        node = store.get_fact(args.id)
-    elif (store.intents_dir / f"{args.id}.json").exists():
-        node = store.get_intent(args.id)
-    else:
-        raise FGError(f"no fact or intent named {args.id}")
-
-    # WRITE paths
-    if args.set is not None or args.set_file or args.edit:
-        expected_doc = node.get("doc")
-        if args.edit:
-            new_doc = _edit_via_editor(node.get("doc") or "", title=f"{args.id} doc")
-        elif args.set_file:
-            new_doc = Path(args.set_file).read_text(encoding="utf-8")
-        else:
-            new_doc = args.set
-        new_doc = new_doc.strip() if isinstance(new_doc, str) else None
-        node = store.update_doc(args.id, new_doc, expected_doc=expected_doc)
-        print(
-            f"updated doc for {args.id} ({len(node['doc'] or '')} chars)"
-            if node["doc"]
-            else f"cleared doc for {args.id}"
-        )
-        return 0
-
-    # READ path: print the doc (or note its absence)
-    doc = node.get("doc")
-    if doc:
-        print(doc)
-    else:
-        sys.stderr.write(
-            f"{args.id} has no doc. add one: sapper doc {args.id} --set '...' or --edit\n"
-        )
-        return 1
-    return 0
 
 
-def cmd_recall(args) -> int:
-    """Find prior facts/intents whose title+description look similar to the
-    given query. Use this BEFORE starting a new task: if a strong match
-    exists, read its doc with `sapper doc <id>` and reuse what was learned."""
-    store = Store(Path(args.store))
-    store.require()
-    query = (args.query or "").strip()
-    if not query:
-        raise FGError("recall: query is required")
-    if args.limit < 1:
-        raise FGError("recall: --limit must be >= 1")
-    kinds: tuple[str, ...]
-    if args.kind == "fact":
-        kinds = ("fact",)
-    elif args.kind == "intent":
-        kinds = ("intent",)
-    else:
-        kinds = ("fact", "intent")
-    matches = recall(store, query, limit=args.limit, kinds=kinds)
-    if args.json:
-        print(json.dumps(matches, ensure_ascii=False, indent=2))
-    else:
-        print(render_recall(matches, query))
-    return 0 if matches else 1
 
 
 def _edit_via_editor(initial: str, title: str) -> str:
@@ -1677,91 +1029,17 @@ def _edit_via_editor(initial: str, title: str) -> str:
         Path(tmp).unlink(missing_ok=True)
 
 
-def cmd_claim(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    intent = store.claim_intent(args.id, args.worker)
-    print(f"claimed {intent['id']} -> {args.worker}")
-    return 0
 
 
-def cmd_release(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    worker = args.worker or f"agent-{os.getpid()}"
-    intent = store.release_intent(args.id, worker)
-    print(f"released {intent['id']}")
-    return 0
 
 
-def cmd_done(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    # atomic fact-create + conclude (no orphan if intent already done - review H1)
-    fact, intent = store.conclude_with_new_fact(
-        args.id,
-        args.fact,
-        args.worker,
-        title=args.title,
-        doc=_read_doc_arg(args),
-        kind=args.kind,
-        data=parse_kv_pairs(args.data),
-    )
-    print(f"{args.id} -> {fact['id']}  ({intent['status']})")
-    return 0
 
 
-def cmd_complete(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    from_ids = parse_from(args.from_)
-    note = args.note or "goal satisfied"
-    intent = store.complete_project(from_ids, note, args.worker)
-    print(f"project complete via {intent['id']} (goal)")
-    return 0
 
 
-def cmd_confirm(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    intent = store.confirm_intent(args.id)
-    print(f"confirmed {intent['id']}")
-    return 0
 
 
 # -- dispatch (LLM) --
-def cmd_dispatch(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    model = args.model
-    timeout = args.timeout
-    if not isinstance(model, str) or not model.strip():
-        raise FGError("--model cannot be empty")
-    if timeout < 1:
-        raise FGError("--timeout must be at least 1 second")
-    skip = args.skip_permissions
-    templates_dir = Path(args.templates)
-
-    cwd = Path.cwd()
-
-    if args.target == "reason":
-        return _dispatch_reason(store, templates_dir, model, timeout, skip, cwd, args)
-    elif args.target == "verify":
-        return _dispatch_verify(store, templates_dir, model, timeout, skip, cwd, args)
-    elif args.target == "blindspot":
-        return _dispatch_blindspot(
-            store, templates_dir, model, timeout, skip, cwd, args
-        )
-    elif args.target == "brainstorm":
-        return _dispatch_brainstorm(
-            store, templates_dir, model, timeout, skip, cwd, args
-        )
-    else:
-        # treat as intent id -> explore
-        intent = store.get_intent(args.target)
-        return _dispatch_explore(
-            store, templates_dir, intent, model, timeout, skip, cwd, args
-        )
 
 
 def _agents_system_prompt(store: Store) -> str:
@@ -2075,49 +1353,6 @@ def _apply_brainstorm(
     return f"proposed {len(made)} options (confirm one with `sapper brainstorm-pick <id>`): {', '.join(made)}"
 
 
-def cmd_brainstorm_pick(args) -> int:
-    """Pick one brainstorm option: confirm it, abandon siblings from same batch."""
-    store = Store(Path(args.store))
-    store.require()
-    picked_id = args.id
-    picked = store.get_intent(picked_id)
-    if picked["to"] is not None:
-        raise FGError(f"{picked_id} already concluded")
-    if not picked["requires_confirmation"]:
-        raise FGError(
-            f"{picked_id} is not a brainstorm option (no confirmation required)"
-        )
-    doc = picked.get("doc") or ""
-    batch_tag = None
-    for line in doc.split("\n"):
-        if line.startswith("[brainstorm batch: "):
-            batch_tag = line.split(": ", 1)[1].rstrip("]")
-            break
-    if not batch_tag:
-        raise FGError(f"{picked_id} has no brainstorm batch tag in its doc")
-    if not picked["confirmed_at"]:
-        store.confirm_intent(picked_id)
-    all_intents = store.list_intents()
-    abandoned = []
-    for i in all_intents:
-        if i["id"] == picked_id:
-            continue
-        if i["to"] is not None:
-            continue
-        i_doc = i.get("doc") or ""
-        if f"[brainstorm batch: {batch_tag}]" in i_doc:
-            fact, _ = store.conclude_with_new_fact(
-                i["id"],
-                f"option abandoned in favor of {picked_id}",
-                "brainstorm-pick",
-                title="已弃用",
-                allow_unconfirmed=True,
-            )
-            abandoned.append(i["id"])
-    print(
-        f"confirmed {picked_id}, abandoned {len(abandoned)} sibling(s): {', '.join(abandoned) or '(none)'}"
-    )
-    return 0
 
 
 def _load_template(templates_dir: Path, name: str) -> str:
@@ -2300,134 +1535,8 @@ def _load_settings_patch():
         raise FGError(f"could not load settings patcher: {exc}") from exc
 
 
-def cmd_setup(args) -> int:
-    """`sapper setup` - turn THIS project into a fact-graph project.
-
-    Does three things, idempotently, scoped to the current project only:
-      1. creates the local graph (.sapper/) if --goal is given (else requires one
-         to already exist, or asks you to pass --goal)
-      2. registers the two hooks in <project>/.claude/settings.json so this
-         project auto-injects the graph into every turn
-      3. writes AGENTS.md so dispatched sub-agents know the protocol
-
-    Nothing is written under ~. Other projects are untouched.
-    """
-    project_dir = Path.cwd()
-    store = Store(Path(args.store))
-    # Validate an existing settings file before creating a new graph.  A
-    # malformed Claude config should not leave setup half-completed with a
-    # graph that has no working hooks.
-    patch = _load_settings_patch()
-    target = patch.project_settings_path(project_dir)
-    if target.exists():
-        try:
-            patch.validate(target)
-        except (OSError, ValueError) as exc:
-            raise FGError(f"could not read {target}: {exc}") from exc
-    made_graph = False
-    if not store.exists():
-        if not args.goal:
-            raise FGError(
-                'no .sapper/ here. Pass --goal "<one-line goal>" to create one, '
-                "or run from a directory that already has a graph."
-            )
-        store.init(origin=args.origin or "", goal=args.goal)
-        made_graph = True
-        print(f"created graph at {store.root} (goal: {args.goal})")
-    else:
-        print(f"graph already present at {store.root}")
-
-    # register hooks into project-level settings
-    try:
-        changed, msgs = patch.add(target, str(_hook_script_path()))
-    except (OSError, ValueError) as exc:
-        raise FGError(f"could not update {target}: {exc}") from exc
-    for m in msgs:
-        print(m)
-
-    # AGENTS.md
-    if args.agents:
-        ap = project_dir / "AGENTS.md"
-        if ap.exists() and not args.force:
-            print(f"AGENTS.md exists - leaving it (--force to overwrite)")
-        else:
-            spec_txt = _AGENTS_SPEC.format(
-                store=str(store.root.resolve()), marker=_AGENTS_MARKER
-            )
-            ap.write_text(spec_txt, encoding="utf-8")
-            print(f"wrote {ap}")
-
-    print(
-        "\nsetup done. This project now auto-reads/maintains its fact graph.\n"
-        "  sapper status          # see current state\n"
-        "  sapper dispatch reason # propose next work\n"
-        "  sapper peers --discover # optional: list tmux panes, then ask user who to authorize\n"
-        "  sapper auto --skip-permissions  # drive to completion\n"
-        "To undo:  sapper teardown   (removes sapper hooks + its AGENTS.md; keeps .sapper/)"
-    )
-    return 0
 
 
-def cmd_teardown(args) -> int:
-    """`sapper teardown` - remove the hooks and sapper-owned AGENTS.md from THIS project.
-
-    Never touches the graph data (.sapper/) unless --purge is given.
-    """
-    project_dir = Path.cwd()
-    patch = _load_settings_patch()
-    target = patch.project_settings_path(project_dir)
-    removed_any = False
-    if target.exists():
-        try:
-            _, msgs = patch.remove(target, str(_hook_script_path()))
-        except (OSError, ValueError) as exc:
-            raise FGError(f"could not update {target}: {exc}") from exc
-        for m in msgs:
-            print(m)
-            if m.startswith("  -"):
-                removed_any = True
-        # if the project settings.json is now empty, drop it (and its dir)
-        try:
-            leftover = json.loads(target.read_text(encoding="utf-8") or "{}")
-        except Exception:
-            leftover = {}
-        if not leftover:
-            target.unlink(missing_ok=True)
-            print(f"removed empty {target}")
-            if target.parent.exists() and not any(target.parent.iterdir()):
-                target.parent.rmdir()
-                print(f"removed empty {target.parent}")
-
-    ap = project_dir / "AGENTS.md"
-    if ap.exists():
-        try:
-            agents_text = ap.read_text(encoding="utf-8")
-        except OSError:
-            agents_text = ""
-        generated = agents_text.startswith(
-            _AGENTS_MARKER
-        ) or agents_text == _AGENTS_SPEC.format(
-            store=str(Path(args.store).resolve()), marker=_AGENTS_MARKER
-        )
-        if generated:
-            ap.unlink()
-            print(f"removed {ap}")
-        else:
-            print(f"kept existing {ap} (not generated by sapper)")
-
-    if args.purge:
-        import shutil
-
-        store_root = Path(args.store)
-        if store_root.exists():
-            _assert_safe_store_root(store_root, "purge")
-            shutil.rmtree(store_root)
-            print(f"purged graph data {store_root}")
-    else:
-        sr = Path(args.store)
-        if sr.exists():
-            print(f"(kept graph data at {sr}; pass --purge to delete it too)")
-    return 0
 
 
 # --------------------------------------------------------------------------- #
@@ -2471,26 +1580,6 @@ def _render_static_html(store: Store) -> str:
     return tpl
 
 
-def cmd_view(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-
-    if args.serve:
-        return _view_serve(store, args)
-    if args.print:
-        sys.stdout.write(_render_static_html(store))
-        return 0
-    # default: write a snapshot file next to .sapper and tell the user where it is
-    out = Path(args.out) if args.out else (store.root.parent / "sapper-graph.html")
-    out.write_text(_render_static_html(store), encoding="utf-8")
-    # try to open it in the default browser (best-effort, non-fatal)
-    opened = _try_open(out)
-    print(f"wrote {out}")
-    if opened:
-        print(f"(opened in browser)")
-    else:
-        print(f"open it: file://{out.resolve()}")
-    return 0
 
 
 def _try_open(path: Path) -> bool:
@@ -2855,36 +1944,6 @@ def _auto_explore_phase(ctx: _AutoCtx, step: int, before: tuple) -> str:
     return "continue"
 
 
-def cmd_auto(args) -> int:
-    """Drive the whole graph forward until goal reached or budget exhausted."""
-    ctx = _auto_setup(args)
-    for step in range(1, ctx.max_steps + 1):
-        if ctx.deadline is not None and time.time() >= ctx.deadline:
-            print("[auto] deadline reached - stopping (record what you have)")
-            break
-        args.time_budget = format_time_budget(ctx.deadline)
-        if ctx.store.load_project()["status"] == "completed":
-            print(f"[auto] step {step}: project already completed")
-            break
-        before = _graph_signature(ctx.store)
-
-        status, kind = _auto_reason(ctx, step)
-        if status == "break":
-            break
-        if status == "continue":
-            continue
-        status = _auto_after_reason(ctx, step, kind)
-        if status == "break":
-            break
-        if status == "continue":
-            continue
-
-        if _auto_explore_phase(ctx, step, before) == "break":
-            break
-
-    project = ctx.store.load_project()
-    print(f"[auto] done  status={project['status']}  explored={ctx.explore_count}")
-    return 0
 
 
 def _run_reason_raw(
@@ -3114,175 +2173,10 @@ def _capture_tmux(target: str, lines: int) -> str:
     return proc.stdout.rstrip()
 
 
-def cmd_peers(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-
-    if args.discover:
-        rows = _tmux_discover()
-        if args.json:
-            print(json.dumps(rows, ensure_ascii=False, indent=2))
-            return 0
-        if not rows:
-            print("no tmux panes found")
-            return 0
-        print("tmux panes:")
-        for r in rows:
-            marker = "*" if r["active"] else " "
-            title = f" title={r['title']!r}" if r["title"] else ""
-            print(
-                f"  {marker} {r['target']:<14} session={r['session']:<10} "
-                f"window={r['window']:<12} cmd={r['command']}{title}"
-            )
-        print(
-            "\nAuthorize explicitly before sending, for example:\n"
-            '  sapper peers --add harley --target api-6:0.0 --sender "Codex/api2-4"'
-        )
-        return 0
-
-    data = _load_peers(store)
-    peers = data["peers"]
-
-    if args.add:
-        name = args.add.strip()
-        if not PEER_NAME_RE.match(name):
-            raise FGError(
-                "peer name must contain only letters, numbers, '.', '_' or '-'"
-            )
-        if not args.target:
-            raise FGError("--target is required with --add")
-        if not _tmux_target_exists(args.target):
-            raise FGError(f"tmux target not found: {args.target}")
-        if args.channel:
-            data["channel"] = str(Path(args.channel).expanduser())
-        peers[name] = {
-            "target": args.target,
-            "sender": args.sender or os.environ.get("FGC_SENDER") or "sapper-agent",
-            "created_at": now_iso(),
-            "note": args.note or None,
-        }
-        _save_peers(store, data)
-        print(
-            f"authorized peer {name}: target={args.target} sender={peers[name]['sender']}"
-        )
-        return 0
-
-    if args.remove:
-        name = args.remove.strip()
-        if name not in peers:
-            raise FGError(f"peer not configured: {name}")
-        del peers[name]
-        _save_peers(store, data)
-        print(f"removed peer {name}")
-        return 0
-
-    if args.json:
-        print(json.dumps(data, ensure_ascii=False, indent=2))
-        return 0
-    print(f"peer config: {_peers_path(store)}")
-    print(f"shared log:  {data.get('channel')}")
-    if not peers:
-        print("(no authorized peers)")
-        print(
-            "run `sapper peers --discover` to list tmux panes, then authorize one with --add"
-        )
-        return 0
-    print("authorized peers:")
-    for name, peer in sorted(peers.items()):
-        note = f" note={peer.get('note')!r}" if peer.get("note") else ""
-        print(
-            f"  {name:<16} target={peer.get('target')} sender={peer.get('sender')}{note}"
-        )
-    return 0
 
 
-def cmd_send(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    data = _load_peers(store)
-    peers = data["peers"]
-    peer = peers.get(args.peer)
-    if peer is None:
-        raise FGError(
-            f"peer not configured: {args.peer}. Run `sapper peers` to see authorized peers."
-        )
-    target = peer.get("target")
-    if not target:
-        raise FGError(f"peer {args.peer} has no tmux target")
-    if not _tmux_target_exists(target):
-        raise FGError(f"tmux target not found: {target}")
-
-    if args.message:
-        body = " ".join(args.message).strip()
-    else:
-        body = sys.stdin.read().strip()
-    if not body:
-        raise FGError("empty message")
-
-    if args.raw:
-        message = body
-    else:
-        stamp = time.strftime("%Y-%m-%d %H:%M")
-        sender = (
-            args.sender
-            or peer.get("sender")
-            or os.environ.get("FGC_SENDER")
-            or "sapper-agent"
-        )
-        message = f"[{stamp}][{sender}] {body}"
-
-    if not args.no_log:
-        channel = Path(
-            args.channel or data.get("channel") or (store.root / AI_CHANNEL_NAME)
-        )
-        channel.parent.mkdir(parents=True, exist_ok=True)
-        with open(channel, "a", encoding="utf-8") as fh:
-            fh.write(message + "\n")
-
-    # Claude Code TUI often needs pasted LF, not tmux send-keys Enter. A second
-    # LF makes submission reliable after idle / goal-complete states.
-    _paste_tmux(target, message)
-    time.sleep(float(os.environ.get("AI_SEND_INITIAL_DELAY", "0.1")))
-    _paste_tmux(target, "\n")
-    time.sleep(float(os.environ.get("AI_SEND_SUBMIT_DELAY", "0.5")))
-    _paste_tmux(target, "\n")
-    print(f"sent to {args.peer} ({target}): {message}")
-    return 0
 
 
-def cmd_capture(args) -> int:
-    store = Store(Path(args.store))
-    store.require()
-    data = _load_peers(store)
-    peer = data["peers"].get(args.peer)
-    if peer is None:
-        raise FGError(
-            f"peer not configured: {args.peer}. Run `sapper peers` to see authorized peers."
-        )
-    target = peer.get("target")
-    if not target:
-        raise FGError(f"peer {args.peer} has no tmux target")
-    if not _tmux_target_exists(target):
-        raise FGError(f"tmux target not found: {target}")
-    if args.lines < 1 or args.lines > 2000:
-        raise FGError("--lines must be between 1 and 2000")
-
-    text = _capture_tmux(target, args.lines)
-    print(text)
-
-    if args.log:
-        channel = Path(
-            args.channel or data.get("channel") or (store.root / AI_CHANNEL_NAME)
-        )
-        channel.parent.mkdir(parents=True, exist_ok=True)
-        stamp = time.strftime("%Y-%m-%d %H:%M")
-        with open(channel, "a", encoding="utf-8") as fh:
-            fh.write(
-                f"[{stamp}][sapper-capture] peer={args.peer} "
-                f"target={target} lines={args.lines}\n"
-            )
-            fh.write(text + "\n")
-    return 0
 
 
 _AGENTS_MARKER = (
@@ -4013,6 +2907,43 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     except BrokenPipeError:
         return 0
+
+
+from sapper_pkg.commands import (  # noqa: I001 - imported after definitions
+    cmd_init,
+    cmd_status,
+    cmd_graph,
+    cmd_validate,
+    cmd_frontier,
+    cmd_pick,
+    cmd_fact,
+    cmd_intent,
+    cmd_hint,
+    cmd_show,
+    cmd_doc,
+    cmd_recall,
+    cmd_claim,
+    cmd_release,
+    cmd_done,
+    cmd_complete,
+    cmd_confirm,
+    cmd_brainstorm_pick,
+    cmd_flag,
+    cmd_arena,
+    cmd_kb,
+    cmd_peers,
+    cmd_send,
+    cmd_capture,
+    cmd_setup,
+    cmd_teardown,
+    cmd_view,
+    cmd_auto,
+    cmd_dispatch,
+    cmd_sweep,
+    cmd_bench,
+    cmd_command,
+    cmd_fleet,
+)
 
 
 if __name__ == "__main__":
