@@ -25,6 +25,7 @@ Rules:
   - On remove, deletes ONLY entries whose command contains MARKER; leaves the
     rest (and the file's other keys) intact.
 """
+
 from __future__ import annotations
 
 import json
@@ -57,6 +58,7 @@ def _cmd(hook_script: str, arg: str) -> str:
     # paths with spaces/metachars don't break or inject (review codex#6).
     import shlex
     import sys
+
     py = shlex.quote(sys.executable or "python3")
     script = shlex.quote(hook_script)
     return f"{py} {script} {arg}"
@@ -165,10 +167,12 @@ def add(settings_path: Path, hook_script: str) -> tuple[bool, list[str]]:
         if _has_hook(groups, MARKER):
             msgs.append(f"  = {event}: already present")
             continue
-        groups.append({
-            "matcher": "",
-            "hooks": [{"type": "command", "command": _cmd(hook_script, arg)}],
-        })
+        groups.append(
+            {
+                "matcher": "",
+                "hooks": [{"type": "command", "command": _cmd(hook_script, arg)}],
+            }
+        )
         changed = True
         msgs.append(f"  + {event}: {arg}")
 
@@ -231,7 +235,9 @@ def main(argv: list[str]) -> int:
         return 2
     # `add` requires the hook script path; `remove` can infer it (review codex#10)
     if argv[1] == "add" and len(argv) < 3:
-        sys.stderr.write("usage: _settings_patch.py add <abs-sapper-hook.py> [settings.json]\n")
+        sys.stderr.write(
+            "usage: _settings_patch.py add <abs-sapper-hook.py> [settings.json]\n"
+        )
         return 2
     if len(argv) >= 3:
         hook_script = str(Path(argv[2]).resolve())

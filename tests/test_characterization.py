@@ -303,9 +303,16 @@ class KBCommandContractTests(unittest.TestCase):
 
     def _run(self, action, **kwargs):
         base = dict(
-            action=action, target=None, description=None, detail=None,
-            detail_file=None, command=None, tag=None, source=None,
-            root=self.root, limit=5,
+            action=action,
+            target=None,
+            description=None,
+            detail=None,
+            detail_file=None,
+            command=None,
+            tag=None,
+            source=None,
+            root=self.root,
+            limit=5,
         )
         base.update(kwargs)
         out = io.StringIO()
@@ -336,17 +343,30 @@ class AutoLoopContractTests(unittest.TestCase):
             _run_cli("--store", store, "fact", "seed")
             _run_cli("--store", store, "intent", "--from", "f001", "do work")
             args = SimpleNamespace(
-                store=store, templates=str(ROOT / "templates"), model="m",
-                timeout=5, skip_permissions=False, max_steps=3, max_explore=2,
-                verify=False, dry_run=False, minutes=None, deadline=None,
+                store=store,
+                templates=str(ROOT / "templates"),
+                model="m",
+                timeout=5,
+                skip_permissions=False,
+                max_steps=3,
+                max_explore=2,
+                verify=False,
+                dry_run=False,
+                minutes=None,
+                deadline=None,
             )
             out = io.StringIO()
-            with mock.patch.object(sapper, "_run_reason_raw", return_value=("proceed", "ok")), \
-                 mock.patch.object(
-                     sapper, "_run_explore_raw",
-                     side_effect=sapper.FGError("intent i001 already concluded"),
-                 ), \
-                 contextlib.redirect_stdout(out):
+            with (
+                mock.patch.object(
+                    sapper, "_run_reason_raw", return_value=("proceed", "ok")
+                ),
+                mock.patch.object(
+                    sapper,
+                    "_run_explore_raw",
+                    side_effect=sapper.FGError("intent i001 already concluded"),
+                ),
+                contextlib.redirect_stdout(out),
+            ):
                 rc = sapper.cmd_auto(args)
             text = out.getvalue()
             self.assertEqual(rc, 0)
@@ -363,21 +383,37 @@ class CommandLoopContractTests(unittest.TestCase):
 
     def test_model_failure_falls_back_to_round_robin(self):
         with tempfile.TemporaryDirectory(prefix="sapper-command-") as root:
-            _run_cli("--store", str(Path(root) / "c01" / ".sapper"), "init", "--goal", "g")
+            _run_cli(
+                "--store", str(Path(root) / "c01" / ".sapper"), "init", "--goal", "g"
+            )
             deadline = datetime.datetime.fromtimestamp(
                 datetime.datetime.now().timestamp() + 1
             ).isoformat()
             args = SimpleNamespace(
-                root=root, store=".sapper", minutes=None, deadline=deadline,
-                model="m", timeout=5, skip_permissions=False, verify=False,
-                templates=None, minutes_default=5, minutes_max=40,
-                max_steps=3, poll_seconds=0, fleet_file=None,
+                root=root,
+                store=".sapper",
+                minutes=None,
+                deadline=deadline,
+                model="m",
+                timeout=5,
+                skip_permissions=False,
+                verify=False,
+                templates=None,
+                minutes_default=5,
+                minutes_max=40,
+                max_steps=3,
+                poll_seconds=0,
+                fleet_file=None,
             )
             out = io.StringIO()
-            with mock.patch.object(sapper, "run_claude", side_effect=sapper.FGError("boom")), \
-                 mock.patch.object(sapper, "_active_workers", return_value=set()), \
-                 mock.patch.object(sapper.subprocess, "run") as spawned, \
-                 contextlib.redirect_stdout(out):
+            with (
+                mock.patch.object(
+                    sapper, "run_claude", side_effect=sapper.FGError("boom")
+                ),
+                mock.patch.object(sapper, "_active_workers", return_value=set()),
+                mock.patch.object(sapper.subprocess, "run") as spawned,
+                contextlib.redirect_stdout(out),
+            ):
                 rc = sapper.cmd_command(args)
             text = out.getvalue()
             self.assertEqual(rc, 0)
@@ -412,6 +448,7 @@ class ValidateGraphContractTests(unittest.TestCase):
 
     def test_duplicate_id_and_filename_mismatch(self):
         import json
+
         fact = json.loads((self.store / "facts" / "goal.json").read_text())
         fact["id"] = "f009"
         for name in ("f009.json", "f010.json"):
@@ -422,10 +459,17 @@ class ValidateGraphContractTests(unittest.TestCase):
 
     def test_dangling_dependency_is_reported(self):
         import json
+
         intent = {
-            "id": "i001", "from": ["f404"], "to": None, "description": "d",
-            "created_at": "t", "status": "open", "worker": None,
-            "requires_confirmation": False, "confirmed_at": None,
+            "id": "i001",
+            "from": ["f404"],
+            "to": None,
+            "description": "d",
+            "created_at": "t",
+            "status": "open",
+            "worker": None,
+            "requires_confirmation": False,
+            "confirmed_at": None,
         }
         (self.store / "intents" / "i001.json").write_text(json.dumps(intent))
         self.assertEqual(self._errors(), ["intent i001: missing dependency fact f404"])
@@ -455,7 +499,9 @@ class StorageConcurrencyTests(unittest.TestCase):
             procs = [
                 subprocess.Popen(
                     [sys.executable, cli, "--store", store, "fact", f"fact {i}"],
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
                 )
                 for i in range(4)
             ]

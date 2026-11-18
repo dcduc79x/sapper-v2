@@ -23,6 +23,7 @@ Entry shape (kb/entries/kb001.json):
 Search = token-overlap scoring (title weighted x2, plus description + tags),
 same zero-dependency approach as `sapper recall`. Stdlib only.
 """
+
 from __future__ import annotations
 
 import json
@@ -63,6 +64,7 @@ class KnowledgeBase:
     @classmethod
     def default_root(cls) -> Path:
         import os
+
         env = os.environ.get("SAPPER_KB_ROOT")
         if env:
             return Path(env).expanduser()
@@ -81,7 +83,9 @@ class KnowledgeBase:
             try:
                 data = json.loads(p.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError, UnicodeDecodeError) as exc:
-                sys.stderr.write(f"sapper: warning: skipping bad kb entry {p.name}: {exc}\n")
+                sys.stderr.write(
+                    f"sapper: warning: skipping bad kb entry {p.name}: {exc}\n"
+                )
                 continue
             if isinstance(data, dict) and isinstance(data.get("id"), str):
                 out.append(data)
@@ -93,9 +97,16 @@ class KnowledgeBase:
             n += 1
         return f"kb{n:03d}"
 
-    def add(self, title: str, description: str = "", detail: str = "",
-            commands: list[str] | None = None, tags: list[str] | None = None,
-            source: str = "", entry_id: str | None = None) -> dict:
+    def add(
+        self,
+        title: str,
+        description: str = "",
+        detail: str = "",
+        commands: list[str] | None = None,
+        tags: list[str] | None = None,
+        source: str = "",
+        entry_id: str | None = None,
+    ) -> dict:
         title = (title or "").strip()
         if not title:
             raise KBError("kb entry needs a title")
@@ -123,8 +134,9 @@ class KnowledgeBase:
         path = self.entries_dir / f"{entry_id}.json"
         if path.exists():
             raise KBError(f"kb entry {entry_id} already exists ({path})")
-        path.write_text(json.dumps(entry, ensure_ascii=False, indent=2) + "\n",
-                        encoding="utf-8")
+        path.write_text(
+            json.dumps(entry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
         return entry
 
     def get(self, entry_id: str) -> dict:
@@ -174,8 +186,9 @@ def _brief(e: dict) -> dict:
     }
 
 
-def import_markdown(path: Path, base_tags: list[str] | None = None,
-                    source: str = "") -> dict:
+def import_markdown(
+    path: Path, base_tags: list[str] | None = None, source: str = ""
+) -> dict:
     """Import a markdown file as one entry: first '# heading' is the title,
     a ' > ' or italic line right after may serve as description, the rest is
     the detail body."""

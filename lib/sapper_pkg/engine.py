@@ -17,8 +17,13 @@ from pathlib import Path
 from .errors import FGError
 
 __all__ = [
-    "_extract_first_balanced", "extract_json_object", "_QUOTA_ERROR_RE",
-    "_load_key_pool", "_is_quota_error", "_rotate_key", "run_claude",
+    "_extract_first_balanced",
+    "extract_json_object",
+    "_QUOTA_ERROR_RE",
+    "_load_key_pool",
+    "_is_quota_error",
+    "_rotate_key",
+    "run_claude",
     "_run_engine_once",
 ]
 
@@ -47,7 +52,7 @@ def _extract_first_balanced(text: str, start: int) -> tuple[dict | None, int]:
             elif ch == "}":
                 depth -= 1
                 if depth == 0:
-                    blob = text[start:i + 1]
+                    blob = text[start : i + 1]
                     try:
                         return json.loads(blob), i + 1
                     except json.JSONDecodeError:
@@ -72,7 +77,7 @@ def extract_json_object(text: str) -> dict:
         if obj is not None:
             return obj
         # remember the failure for a useful error, then look past this object
-        blob = text[start:min(end, len(text))]
+        blob = text[start : min(end, len(text))]
         last_error = blob[:200]
         pos = end if end > start else start + 1
     if last_error is not None:
@@ -109,12 +114,20 @@ def _load_key_pool() -> list[dict]:
         return []
     out = []
     for item in pool if isinstance(pool, list) else []:
-        if isinstance(item, dict) and isinstance(item.get("token"), str) and item["token"].strip():
-            out.append({
-                "base_url": item.get("base_url") or os.environ.get("ANTHROPIC_BASE_URL", ""),
-                "token": item["token"].strip(),
-                "model": item.get("model") or os.environ.get("SAPPER_MODEL", "sonnet"),
-            })
+        if (
+            isinstance(item, dict)
+            and isinstance(item.get("token"), str)
+            and item["token"].strip()
+        ):
+            out.append(
+                {
+                    "base_url": item.get("base_url")
+                    or os.environ.get("ANTHROPIC_BASE_URL", ""),
+                    "token": item["token"].strip(),
+                    "model": item.get("model")
+                    or os.environ.get("SAPPER_MODEL", "sonnet"),
+                }
+            )
     return out
 
 
@@ -171,8 +184,10 @@ def run_claude(
     prefix = os.environ.get("SAPPER_BIN", "claude").split()
     argv = prefix + [
         "-p",
-        "--output-format", "json",
-        "--model", model,
+        "--output-format",
+        "json",
+        "--model",
+        model,
     ]
     if skip_permissions:
         argv.append("--dangerously-skip-permissions")
@@ -184,7 +199,11 @@ def run_claude(
     for attempt in range(1, attempts + 1):
         try:
             return _run_engine_once(
-                argv, prompt, timeout, cwd, engine,
+                argv,
+                prompt,
+                timeout,
+                cwd,
+                engine,
             )
         except FGError as exc:
             last_error = exc
@@ -218,13 +237,13 @@ def _run_engine_once(argv, prompt, timeout, cwd, engine) -> dict:
             cwd=str(cwd),
         )
     except FileNotFoundError:
-        raise FGError(f"`{engine}` CLI not found on PATH; install it or fix SAPPER_BIN.")
+        raise FGError(
+            f"`{engine}` CLI not found on PATH; install it or fix SAPPER_BIN."
+        )
     except subprocess.TimeoutExpired:
         raise FGError(f"{engine} dispatch timed out after {timeout}s")
     if proc.returncode != 0:
-        raise FGError(
-            f"{engine} exited {proc.returncode}: {proc.stderr.strip()[:500]}"
-        )
+        raise FGError(f"{engine} exited {proc.returncode}: {proc.stderr.strip()[:500]}")
     try:
         envelope = json.loads(proc.stdout)
     except json.JSONDecodeError:

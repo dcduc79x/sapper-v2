@@ -14,7 +14,9 @@ sys.path.insert(0, str(ROOT / "lib"))
 import sapper  # noqa: E402
 
 SETTINGS_PATH = ROOT / "lib" / "_settings_patch.py"
-_spec = importlib.util.spec_from_file_location("settings_patch_for_tests", SETTINGS_PATH)
+_spec = importlib.util.spec_from_file_location(
+    "settings_patch_for_tests", SETTINGS_PATH
+)
 settings_patch = importlib.util.module_from_spec(_spec)
 assert _spec and _spec.loader
 _spec.loader.exec_module(settings_patch)
@@ -30,7 +32,9 @@ class GraphIntegrityTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_corrupt_node_is_skipped_and_reported_by_validate(self):
-        (self.store.facts_dir / "f001.json").write_text('{"id":"f001"}\n', encoding="utf-8")
+        (self.store.facts_dir / "f001.json").write_text(
+            '{"id":"f001"}\n', encoding="utf-8"
+        )
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr):
             rendered = sapper.render_graph_text(self.store)
@@ -63,7 +67,9 @@ class GraphIntegrityTests(unittest.TestCase):
         data["status"] = "done"
         path.write_text(json.dumps(data), encoding="utf-8")
         errors = sapper.validate_graph(self.store)
-        self.assertTrue(any("completed status requires a target" in error for error in errors))
+        self.assertTrue(
+            any("completed status requires a target" in error for error in errors)
+        )
 
     def test_confirmation_is_enforced_at_write_boundary(self):
         fact = self.store.add_fact("starting point", "test", None)
@@ -107,7 +113,9 @@ class GraphIntegrityTests(unittest.TestCase):
         result = self.store.add_fact("already observed", "test", None)
         intent = self.store.add_intent([seed["id"]], "link result", "test")
         self.store.conclude_intent(intent["id"], result["id"], "test")
-        self.assertEqual(self.store.get_fact(result["id"])["source_intent"], intent["id"])
+        self.assertEqual(
+            self.store.get_fact(result["id"])["source_intent"], intent["id"]
+        )
         self.assertEqual(sapper.validate_graph(self.store), [])
 
     def test_pick_claim_skips_another_workers_lease(self):
@@ -115,10 +123,16 @@ class GraphIntegrityTests(unittest.TestCase):
         first = self.store.add_intent([seed["id"]], "first", "test")
         second = self.store.add_intent([seed["id"]], "second", "test")
         self.store.claim_intent(first["id"], "other-worker")
-        args = type("Args", (), {
-            "store": str(self.store.root), "claim": True,
-            "worker": "my-worker", "any": False,
-        })()
+        args = type(
+            "Args",
+            (),
+            {
+                "store": str(self.store.root),
+                "claim": True,
+                "worker": "my-worker",
+                "any": False,
+            },
+        )()
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             sapper.cmd_pick(args)
@@ -138,9 +152,14 @@ class GraphIntegrityTests(unittest.TestCase):
 
     def test_brainstorm_template_token_does_not_rewrite_graph_text(self):
         self.store.add_fact("literal {max_options} marker", "test", None)
-        args = type("Args", (), {
-            "max_options": 2, "dry_run": True,
-        })()
+        args = type(
+            "Args",
+            (),
+            {
+                "max_options": 2,
+                "dry_run": True,
+            },
+        )()
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             sapper._dispatch_brainstorm(
@@ -158,13 +177,20 @@ class GraphIntegrityTests(unittest.TestCase):
         seed = self.store.add_fact("seed", "test", None)
         intent = self.store.add_intent([seed["id"]], "check", "test")
         result, _ = self.store.conclude_with_new_fact(intent["id"], "result", "test")
-        args = type("Args", (), {
-            "intent": intent["id"], "dry_run": False,
-        })()
+        args = type(
+            "Args",
+            (),
+            {
+                "intent": intent["id"],
+                "dry_run": False,
+            },
+        )()
         with mock.patch.object(
             sapper,
             "run_claude",
-            return_value={"result": '{"accepted": true, "data": {"verified": false, "issues": "mismatch"}}'},
+            return_value={
+                "result": '{"accepted": true, "data": {"verified": false, "issues": "mismatch"}}'
+            },
         ):
             rc = sapper._dispatch_verify(
                 self.store, ROOT / "templates", "sonnet", 10, False, ROOT, args
@@ -193,21 +219,32 @@ class GraphIntegrityTests(unittest.TestCase):
         sapper._apply_brainstorm(self.store, payload)
         docs = [i["doc"] for i in self.store.list_intents()]
         self.assertEqual(len(docs), 2)
-        tags = [line for doc in docs for line in doc.splitlines() if line.startswith("[brainstorm batch:")]
+        tags = [
+            line
+            for doc in docs
+            for line in doc.splitlines()
+            if line.startswith("[brainstorm batch:")
+        ]
         self.assertEqual(len(set(tags)), 2)
 
     def test_brainstorm_pick_preserves_abandoned_edges(self):
         seed = self.store.add_fact("seed", "test", None)
         payload = {
             "accepted": True,
-            "data": {"options": [
-                {"from": [seed["id"]], "title": "one", "description": "first"},
-                {"from": [seed["id"]], "title": "two", "description": "second"},
-            ]},
+            "data": {
+                "options": [
+                    {"from": [seed["id"]], "title": "one", "description": "first"},
+                    {"from": [seed["id"]], "title": "two", "description": "second"},
+                ]
+            },
         }
         sapper._apply_brainstorm(self.store, payload)
         picked = self.store.list_intents()[0]
-        args = type("Args", (), {"store": str(self.store.root), "id": picked["id"], "purge": False})()
+        args = type(
+            "Args",
+            (),
+            {"store": str(self.store.root), "id": picked["id"], "purge": False},
+        )()
         sapper.cmd_brainstorm_pick(args)
         intents = self.store.list_intents()
         self.assertEqual(sum(i["to"] is None for i in intents), 1)
@@ -220,10 +257,20 @@ class SettingsPatchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "settings.json"
             path.write_text(
-                json.dumps({"hooks": {"SessionStart": [{"matcher": "x", "hooks": [
-                    {"type": "command", "command": "echo keep"
+                json.dumps(
+                    {
+                        "hooks": {
+                            "SessionStart": [
+                                {
+                                    "matcher": "x",
+                                    "hooks": [
+                                        {"type": "command", "command": "echo keep"}
+                                    ],
+                                }
+                            ]
+                        }
                     }
-                ]}]}}),
+                ),
                 encoding="utf-8",
             )
             changed, _ = settings_patch.add(path, "/tmp/sapper-hook.py")
@@ -236,10 +283,14 @@ class SettingsPatchTests(unittest.TestCase):
                 for h in group.get("hooks", [])
             ]
             self.assertIn("echo keep", commands)
-            self.assertEqual(sum("sapper-hook.py" in command for command in commands), 2)
+            self.assertEqual(
+                sum("sapper-hook.py" in command for command in commands), 2
+            )
             settings_patch.remove(path, "/tmp/sapper-hook.py")
             data = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(data["hooks"]["SessionStart"][0]["hooks"][0]["command"], "echo keep")
+            self.assertEqual(
+                data["hooks"]["SessionStart"][0]["hooks"][0]["command"], "echo keep"
+            )
 
     def test_settings_patch_rejects_non_object_json(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -253,7 +304,9 @@ class SettingsPatchTests(unittest.TestCase):
     def test_settings_validation_catches_malformed_event_shape(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "settings.json"
-            path.write_text(json.dumps({"hooks": {"SessionStart": {}}}), encoding="utf-8")
+            path.write_text(
+                json.dumps({"hooks": {"SessionStart": {}}}), encoding="utf-8"
+            )
             with self.assertRaisesRegex(ValueError, "hooks.SessionStart"):
                 settings_patch.validate(path)
 
@@ -264,7 +317,13 @@ class PeerConfigTests(unittest.TestCase):
             store = sapper.Store(Path(tmp) / ".sapper")
             store.init("", "peers")
             (store.root / sapper.PEERS_FILE).write_text(
-                json.dumps({"version": 1, "channel": "x", "peers": {"bad name": {"target": "x"}}}),
+                json.dumps(
+                    {
+                        "version": 1,
+                        "channel": "x",
+                        "peers": {"bad name": {"target": "x"}},
+                    }
+                ),
                 encoding="utf-8",
             )
             with self.assertRaisesRegex(sapper.FGError, "invalid peer name"):
@@ -278,11 +337,19 @@ class PeerConfigTests(unittest.TestCase):
             old_cwd = Path.cwd()
             try:
                 import os
+
                 os.chdir(project)
-                args = type("Args", (), {
-                    "store": ".sapper", "goal": "should not initialize",
-                    "origin": "", "agents": False, "force": False,
-                })()
+                args = type(
+                    "Args",
+                    (),
+                    {
+                        "store": ".sapper",
+                        "goal": "should not initialize",
+                        "origin": "",
+                        "agents": False,
+                        "force": False,
+                    },
+                )()
                 with self.assertRaisesRegex(sapper.FGError, "JSON object"):
                     sapper.cmd_setup(args)
             finally:
@@ -305,8 +372,10 @@ class TypedFactTests(unittest.TestCase):
 
     def test_typed_fact_roundtrip_and_render(self):
         fact = self.store.add_fact(
-            "nginx 1.18 at 10.0.2.15:80", "user",
-            kind="service", data={"host": "10.0.2.15", "port": 80},
+            "nginx 1.18 at 10.0.2.15:80",
+            "user",
+            kind="service",
+            data={"host": "10.0.2.15", "port": 80},
         )
         self.assertEqual(fact["kind"], "service")
         self.assertEqual(fact["data"]["port"], "80")
@@ -334,11 +403,14 @@ class TypedFactTests(unittest.TestCase):
         self.assertTrue(any("kind" in e for e in errors))
 
     def test_explore_payload_carries_kind_and_data(self):
-        payload = {"accepted": True, "data": {
-            "description": "RCE confirmed",
-            "kind": "vuln",
-            "data": {"cve": "CVE-2021-41773"},
-        }}
+        payload = {
+            "accepted": True,
+            "data": {
+                "description": "RCE confirmed",
+                "kind": "vuln",
+                "data": {"cve": "CVE-2021-41773"},
+            },
+        }
         title, desc, doc, kind, data = sapper._parse_explore_payload(payload)
         self.assertEqual(kind, "vuln")
         self.assertEqual(data, {"cve": "CVE-2021-41773"})
@@ -355,8 +427,10 @@ class FlagLedgerTests(unittest.TestCase):
 
     def test_flag_record_and_dedupe(self):
         fact = self.store.add_fact(
-            "flag captured: flag{a}", "agent",
-            kind="flag", data={"value": "flag{a}", "challenge": "c01", "status": "recorded"},
+            "flag captured: flag{a}",
+            "agent",
+            kind="flag",
+            data={"value": "flag{a}", "challenge": "c01", "status": "recorded"},
         )
         dup = sapper._find_flag_fact(self.store, "flag{a}")
         self.assertEqual(dup["id"], fact["id"])
@@ -364,8 +438,10 @@ class FlagLedgerTests(unittest.TestCase):
 
     def test_flag_status_lifecycle_and_type_guard(self):
         fact = self.store.add_fact(
-            "flag captured: flag{a}", "agent",
-            kind="flag", data={"value": "flag{a}", "status": "recorded"},
+            "flag captured: flag{a}",
+            "agent",
+            kind="flag",
+            data={"value": "flag{a}", "status": "recorded"},
         )
         updated = self.store.update_flag_fact(fact["id"], "submitted", '{"ok":true}')
         self.assertEqual(updated["data"]["status"], "submitted")
@@ -378,8 +454,10 @@ class FlagLedgerTests(unittest.TestCase):
 
     def test_status_shows_flag_ledger(self):
         self.store.add_fact(
-            "flag captured: flag{z}", "agent",
-            kind="flag", data={"value": "flag{z}", "challenge": "c09", "status": "submitted"},
+            "flag captured: flag{z}",
+            "agent",
+            kind="flag",
+            data={"value": "flag{z}", "challenge": "c09", "status": "submitted"},
         )
         text = sapper.render_status(self.store)
         self.assertIn("flag(s)", text)
@@ -390,6 +468,7 @@ class FlagLedgerTests(unittest.TestCase):
 class DeadlineTests(unittest.TestCase):
     def test_minutes_and_iso_and_conflict(self):
         import time as _t
+
         a = type("A", (), {"deadline": None, "minutes": 5})()
         d = sapper.deadline_from_args(a)
         self.assertGreater(d, _t.time())
@@ -401,12 +480,18 @@ class DeadlineTests(unittest.TestCase):
         bad = type("D", (), {"deadline": "not-a-date", "minutes": None})()
         with self.assertRaises(sapper.FGError):
             sapper.deadline_from_args(bad)
-        self.assertEqual(sapper.deadline_from_args(type("E", (), {"deadline": None, "minutes": None})()), None)
+        self.assertEqual(
+            sapper.deadline_from_args(
+                type("E", (), {"deadline": None, "minutes": None})()
+            ),
+            None,
+        )
 
     def test_format_time_budget(self):
         self.assertEqual(sapper.format_time_budget(None), "")
-        self.assertIn("TIME IS UP",
-                      sapper.format_time_budget(0))  # 0 -> epoch 1970, always past
+        self.assertIn(
+            "TIME IS UP", sapper.format_time_budget(0)
+        )  # 0 -> epoch 1970, always past
         self.assertIn("remaining", sapper.format_time_budget(_t.time() + 600))
 
 
@@ -419,7 +504,10 @@ class ArenaClientTests(unittest.TestCase):
 
     def _arena(self):
         import importlib.util
-        spec = importlib.util.spec_from_file_location("_arena_test", ROOT / "lib" / "arena.py")
+
+        spec = importlib.util.spec_from_file_location(
+            "_arena_test", ROOT / "lib" / "arena.py"
+        )
         assert spec and spec.loader
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -428,6 +516,7 @@ class ArenaClientTests(unittest.TestCase):
     def test_client_contract_against_local_server(self):
         import threading
         from http.server import BaseHTTPRequestHandler, HTTPServer
+
         arena = self._arena()
         seen = []
 
@@ -446,31 +535,56 @@ class ArenaClientTests(unittest.TestCase):
             def _record(self):
                 length = int(self.headers.get("Content-Length") or 0)
                 body = json.loads(self.rfile.read(length)) if length else None
-                seen.append((self.command, self.path, self.headers.get("BENCHMARK_TOKEN"), body))
+                seen.append(
+                    (self.command, self.path, self.headers.get("BENCHMARK_TOKEN"), body)
+                )
 
             def do_GET(self):
                 self._record()
                 if self.path.startswith("/openapi/v1/challenges/hint"):
                     return self._reply({"unique_code": "c1", "hint": "h"})
-                return self._reply([{"unique_code": "c1", "difficulty": "easy", "level": "1",
-                                     "total_score": 100, "flag_count": 2, "correct_flag_count": 0,
-                                     "is_completed": False, "description": "d",
-                                     "container_status": "stopped", "container_addr": []}])
+                return self._reply(
+                    [
+                        {
+                            "unique_code": "c1",
+                            "difficulty": "easy",
+                            "level": "1",
+                            "total_score": 100,
+                            "flag_count": 2,
+                            "correct_flag_count": 0,
+                            "is_completed": False,
+                            "description": "d",
+                            "container_status": "stopped",
+                            "container_addr": [],
+                        }
+                    ]
+                )
 
             def do_POST(self):
                 self._record()
                 if self.path.startswith("/openapi/v1/challenges/submit"):
-                    return self._reply({"correct": True, "awarded": 50, "cumulative_score": 50,
-                                        "correct_flag_count": 1, "total_flag_count": 2,
-                                        "matched_flag_index": 0})
+                    return self._reply(
+                        {
+                            "correct": True,
+                            "awarded": 50,
+                            "cumulative_score": 50,
+                            "correct_flag_count": 1,
+                            "total_flag_count": 2,
+                            "matched_flag_index": 0,
+                        }
+                    )
                 if self.path.startswith("/openapi/v1/challenges/close"):
                     return self._reply({"unique_code": "c1", "closed": True})
-                return self._reply({"unique_code": "c1", "container_addr": ["10.0.0.9:80"]})
+                return self._reply(
+                    {"unique_code": "c1", "container_addr": ["10.0.0.9:80"]}
+                )
 
         server = HTTPServer(("127.0.0.1", 0), Handler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         try:
-            client = arena.ArenaClient(f"http://127.0.0.1:{server.server_address[1]}", "tok-x")
+            client = arena.ArenaClient(
+                f"http://127.0.0.1:{server.server_address[1]}", "tok-x"
+            )
             chs = client.list_challenges()
             self.assertEqual(chs[0]["unique_code"], "c1")
             started = client.start_challenge("c1")
@@ -497,6 +611,7 @@ class ArenaClientTests(unittest.TestCase):
     def test_error_envelope_surfaces_code(self):
         import threading
         from http.server import BaseHTTPRequestHandler, HTTPServer
+
         arena = self._arena()
 
         class Handler(BaseHTTPRequestHandler):
@@ -504,7 +619,9 @@ class ArenaClientTests(unittest.TestCase):
                 pass
 
             def do_POST(self):
-                data = json.dumps({"code": "invalid_state", "message": "max active", "detail": {}}).encode()
+                data = json.dumps(
+                    {"code": "invalid_state", "message": "max active", "detail": {}}
+                ).encode()
                 self.send_response(409)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(data)))
@@ -514,7 +631,9 @@ class ArenaClientTests(unittest.TestCase):
         server = HTTPServer(("127.0.0.1", 0), Handler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         try:
-            client = arena.ArenaClient(f"http://127.0.0.1:{server.server_address[1]}", "t")
+            client = arena.ArenaClient(
+                f"http://127.0.0.1:{server.server_address[1]}", "t"
+            )
             with self.assertRaises(arena.ArenaError) as ctx:
                 client.start_challenge("c1")
             self.assertEqual(ctx.exception.code, "invalid_state")
@@ -524,14 +643,20 @@ class ArenaClientTests(unittest.TestCase):
 
     def test_config_resolution_env_and_file(self):
         arena = self._arena()
-        with mock.patch.dict("os.environ", {"BENCHMARK_BASE_URL": "http://env-base",
-                                            "BENCHMARK_TOKEN": "env-tok"}):
+        with mock.patch.dict(
+            "os.environ",
+            {"BENCHMARK_BASE_URL": "http://env-base", "BENCHMARK_TOKEN": "env-tok"},
+        ):
             c = arena.ArenaClient.load(None)
             self.assertEqual(c.base_url, "http://env-base")
             self.assertEqual(c.token, "env-tok")
         with tempfile.TemporaryDirectory() as tmp:
-            (Path(tmp) / "arena.json").write_text(json.dumps(
-                {"base_url": "http://file-base", "token": "ENV:BENCHMARK_TOKEN"}), encoding="utf-8")
+            (Path(tmp) / "arena.json").write_text(
+                json.dumps(
+                    {"base_url": "http://file-base", "token": "ENV:BENCHMARK_TOKEN"}
+                ),
+                encoding="utf-8",
+            )
             with mock.patch.dict("os.environ", {"BENCHMARK_TOKEN": "env-tok"}):
                 c = arena.ArenaClient.load(Path(tmp))
                 self.assertEqual(c.base_url, "http://file-base")
@@ -563,6 +688,7 @@ class ArenaErrorBridgeTests(unittest.TestCase):
     def test_409_max_active_caught_as_fgerror(self):
         import threading
         from http.server import BaseHTTPRequestHandler, HTTPServer
+
         arena = sapper._load_arena_module()
 
         class Handler(BaseHTTPRequestHandler):
@@ -570,12 +696,14 @@ class ArenaErrorBridgeTests(unittest.TestCase):
                 pass
 
             def do_POST(self):
-                data = json.dumps({
-                    "code": "invalid_state",
-                    "message": "max active challenge instances reached (3), "
-                               "please close an existing challenge before starting a new one",
-                    "detail": {},
-                }).encode()
+                data = json.dumps(
+                    {
+                        "code": "invalid_state",
+                        "message": "max active challenge instances reached (3), "
+                        "please close an existing challenge before starting a new one",
+                        "detail": {},
+                    }
+                ).encode()
                 self.send_response(409)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(data)))
@@ -586,7 +714,8 @@ class ArenaErrorBridgeTests(unittest.TestCase):
         threading.Thread(target=server.serve_forever, daemon=True).start()
         try:
             client = arena.ArenaClient(
-                f"http://127.0.0.1:{server.server_address[1]}", "t")
+                f"http://127.0.0.1:{server.server_address[1]}", "t"
+            )
             with self.assertRaises(sapper.FGError) as ctx:
                 client.start_challenge("c1")
             self.assertIn("max active", str(ctx.exception).lower())
@@ -596,18 +725,34 @@ class ArenaErrorBridgeTests(unittest.TestCase):
 
 class CommanderTests(unittest.TestCase):
     def test_parse_command_payload(self):
-        ok = {"accepted": True, "data": {"action": "work", "target": "c03", "minutes": 25, "note": "close"}}
-        self.assertEqual(sapper._parse_command_payload(ok), ("work", "c03", 25, "close"))
+        ok = {
+            "accepted": True,
+            "data": {"action": "work", "target": "c03", "minutes": 25, "note": "close"},
+        }
+        self.assertEqual(
+            sapper._parse_command_payload(ok), ("work", "c03", 25, "close")
+        )
         stop = {"accepted": True, "data": {"action": "stop", "reason": "all done"}}
-        self.assertEqual(sapper._parse_command_payload(stop), ("stop", "", 0, "all done"))
+        self.assertEqual(
+            sapper._parse_command_payload(stop), ("stop", "", 0, "all done")
+        )
         rej = {"accepted": False, "reason": "bad board"}
         self.assertEqual(sapper._parse_command_payload(rej)[0], "reject")
         with self.assertRaises(sapper.FGError):
-            sapper._parse_command_payload({"accepted": True, "data": {"action": "hack"}})
+            sapper._parse_command_payload(
+                {"accepted": True, "data": {"action": "hack"}}
+            )
         with self.assertRaises(sapper.FGError):
-            sapper._parse_command_payload({"accepted": True, "data": {"action": "work", "minutes": 10}})
+            sapper._parse_command_payload(
+                {"accepted": True, "data": {"action": "work", "minutes": 10}}
+            )
         with self.assertRaises(sapper.FGError):
-            sapper._parse_command_payload({"accepted": True, "data": {"action": "work", "target": "c1", "minutes": 0}})
+            sapper._parse_command_payload(
+                {
+                    "accepted": True,
+                    "data": {"action": "work", "target": "c1", "minutes": 0},
+                }
+            )
 
     def test_board_summary_and_render(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -616,8 +761,11 @@ class CommanderTests(unittest.TestCase):
                 store = sapper.Store(root / name / ".sapper")
                 store.init("t", f"flag {name}")
             sapper.Store(root / "c01" / ".sapper").add_fact(
-                "flag captured: flag{a}", "agent",
-                kind="flag", data={"value": "flag{a}", "challenge": "c01", "status": "submitted"})
+                "flag captured: flag{a}",
+                "agent",
+                kind="flag",
+                data={"value": "flag{a}", "challenge": "c01", "status": "submitted"},
+            )
             rows = sapper._board_summary(root)
             self.assertEqual([r["name"] for r in rows], ["c01", "c02"])
             by_name = {r["name"]: r for r in rows}
@@ -630,21 +778,33 @@ class CommanderTests(unittest.TestCase):
 
 class FleetTests(unittest.TestCase):
     def test_fleet_pane_commands(self):
-        cfg = {"session": "s", "root": "runs", "deadline": "2026-10-17T13:00:00",
-               "panes": []}
+        cfg = {
+            "session": "s",
+            "root": "runs",
+            "deadline": "2026-10-17T13:00:00",
+            "panes": [],
+        }
         engine = sapper._sapper_engine_prefix()
         self.assertEqual(
             sapper._fleet_pane_command(cfg, {"type": "command"}),
-            f"{engine} command --root runs --deadline 2026-10-17T13:00:00")
+            f"{engine} command --root runs --deadline 2026-10-17T13:00:00",
+        )
         self.assertEqual(
-            sapper._fleet_pane_command(cfg, {"type": "auto:c02", "extra_args": "--verify"}),
-            f"{engine} --store runs/c02/.sapper auto --deadline 2026-10-17T13:00:00 --verify")
+            sapper._fleet_pane_command(
+                cfg, {"type": "auto:c02", "extra_args": "--verify"}
+            ),
+            f"{engine} --store runs/c02/.sapper auto --deadline 2026-10-17T13:00:00 --verify",
+        )
         self.assertEqual(
             sapper._fleet_pane_command(cfg, {"type": "auto:c02"}, base_dir=Path("/w")),
-            f"cd /w && {engine} --store runs/c02/.sapper auto --deadline 2026-10-17T13:00:00")
+            f"cd /w && {engine} --store runs/c02/.sapper auto --deadline 2026-10-17T13:00:00",
+        )
         self.assertEqual(
-            sapper._fleet_pane_command({"root": "runs", "panes": []}, {"type": "shell", "command": "top"}),
-            "top")
+            sapper._fleet_pane_command(
+                {"root": "runs", "panes": []}, {"type": "shell", "command": "top"}
+            ),
+            "top",
+        )
         with self.assertRaises(sapper.FGError):
             sapper._fleet_pane_command(cfg, {"type": "warp"})
         with self.assertRaises(sapper.FGError):
@@ -655,6 +815,7 @@ class FleetTests(unittest.TestCase):
             old = Path.cwd()
             try:
                 import os
+
                 os.chdir(tmp)
                 args = type("A", (), {"action": "init", "file": "fleet.json"})()
                 self.assertEqual(sapper.cmd_fleet(args), 0)
@@ -669,30 +830,67 @@ class FleetTests(unittest.TestCase):
 
 class HireFireTests(unittest.TestCase):
     def test_parse_command_payload_hire_fire(self):
-        hire = {"accepted": True, "data": {"action": "hire", "target": "c07", "minutes": 30}}
+        hire = {
+            "accepted": True,
+            "data": {"action": "hire", "target": "c07", "minutes": 30},
+        }
         self.assertEqual(sapper._parse_command_payload(hire), ("hire", "c07", 30, ""))
-        fire = {"accepted": True, "data": {"action": "fire", "target": "c07", "note": "stuck"}}
-        self.assertEqual(sapper._parse_command_payload(fire), ("fire", "c07", 0, "stuck"))
+        fire = {
+            "accepted": True,
+            "data": {"action": "fire", "target": "c07", "note": "stuck"},
+        }
+        self.assertEqual(
+            sapper._parse_command_payload(fire), ("fire", "c07", 0, "stuck")
+        )
         with self.assertRaises(sapper.FGError):
-            sapper._parse_command_payload({"accepted": True, "data": {"action": "warp", "target": "c"}})
+            sapper._parse_command_payload(
+                {"accepted": True, "data": {"action": "warp", "target": "c"}}
+            )
         with self.assertRaises(sapper.FGError):
-            sapper._parse_command_payload({"accepted": True, "data": {"action": "hire", "minutes": 10}})
+            sapper._parse_command_payload(
+                {"accepted": True, "data": {"action": "hire", "minutes": 10}}
+            )
         with self.assertRaises(sapper.FGError):
-            sapper._parse_command_payload({"accepted": True, "data": {"action": "hire", "target": "c", "minutes": -1}})
+            sapper._parse_command_payload(
+                {
+                    "accepted": True,
+                    "data": {"action": "hire", "target": "c", "minutes": -1},
+                }
+            )
 
     def test_active_workers_parsing(self):
         with mock.patch.object(sapper, "_tmux") as tm:
             tm.return_value = mock.Mock(returncode=1)
             self.assertEqual(sapper._active_workers("nope"), set())
-            tm.return_value = mock.Mock(returncode=0, stdout="commander\nw-c01\nw-c07\nboard\n")
+            tm.return_value = mock.Mock(
+                returncode=0, stdout="commander\nw-c01\nw-c07\nboard\n"
+            )
             self.assertEqual(sapper._active_workers("s"), {"c01", "c07"})
 
     def test_board_render_worker_column(self):
         rows = [
-            {"name": "c01", "status": "active", "flags_submitted": 1, "flags_recorded": 0,
-             "kinds": "1 flag", "open_intents": 2, "last_activity": "t", "goal": "g", "worker": "yes"},
-            {"name": "c02", "status": "active", "flags_submitted": 0, "flags_recorded": 0,
-             "kinds": "-", "open_intents": 0, "last_activity": "t", "goal": "g", "worker": "-"},
+            {
+                "name": "c01",
+                "status": "active",
+                "flags_submitted": 1,
+                "flags_recorded": 0,
+                "kinds": "1 flag",
+                "open_intents": 2,
+                "last_activity": "t",
+                "goal": "g",
+                "worker": "yes",
+            },
+            {
+                "name": "c02",
+                "status": "active",
+                "flags_submitted": 0,
+                "flags_recorded": 0,
+                "kinds": "-",
+                "open_intents": 0,
+                "last_activity": "t",
+                "goal": "g",
+                "worker": "-",
+            },
         ]
         board = sapper.render_board(rows)
         self.assertIn("worker", board)
@@ -711,13 +909,21 @@ class KeyRotationTests(unittest.TestCase):
         self.assertFalse(sapper._is_quota_error("claude exited 2: bad args"))
 
     def test_pool_load_and_rotate(self):
-        pool_json = json.dumps([
-            {"base_url": "http://a", "token": "t1", "model": "m1"},
-            {"base_url": "http://b", "token": "t2", "model": "m2"},
-        ])
-        with mock.patch.dict("os.environ", {
-            "SAPPER_KEY_POOL": pool_json, "ANTHROPIC_AUTH_TOKEN": "t1",
-            "ANTHROPIC_BASE_URL": "http://a", "SAPPER_MODEL": "m1"}):
+        pool_json = json.dumps(
+            [
+                {"base_url": "http://a", "token": "t1", "model": "m1"},
+                {"base_url": "http://b", "token": "t2", "model": "m2"},
+            ]
+        )
+        with mock.patch.dict(
+            "os.environ",
+            {
+                "SAPPER_KEY_POOL": pool_json,
+                "ANTHROPIC_AUTH_TOKEN": "t1",
+                "ANTHROPIC_BASE_URL": "http://a",
+                "SAPPER_MODEL": "m1",
+            },
+        ):
             self.assertTrue(sapper._rotate_key())
             self.assertEqual(os.environ["ANTHROPIC_AUTH_TOKEN"], "t2")
             self.assertEqual(os.environ["ANTHROPIC_BASE_URL"], "http://b")
@@ -727,9 +933,15 @@ class KeyRotationTests(unittest.TestCase):
         with mock.patch.dict("os.environ", {"SAPPER_KEY_POOL": ""}):
             self.assertFalse(sapper._rotate_key())
         # single-entry pool: rotate returns True but keeps the key
-        with mock.patch.dict("os.environ", {
-            "SAPPER_KEY_POOL": json.dumps([{"base_url": "http://a", "token": "t1"}]),
-            "ANTHROPIC_AUTH_TOKEN": "t1"}):
+        with mock.patch.dict(
+            "os.environ",
+            {
+                "SAPPER_KEY_POOL": json.dumps(
+                    [{"base_url": "http://a", "token": "t1"}]
+                ),
+                "ANTHROPIC_AUTH_TOKEN": "t1",
+            },
+        ):
             self.assertTrue(sapper._rotate_key())
             self.assertEqual(os.environ["ANTHROPIC_AUTH_TOKEN"], "t1")
 
@@ -744,10 +956,14 @@ class HookExecutionTests(unittest.TestCase):
 
     def _run_hook(self, event, cwd, stdin=None):
         import subprocess
+
         proc = subprocess.run(
             [sys.executable, str(ROOT / "lib" / "sapper-hook.py"), event],
-            capture_output=True, text=True, timeout=30,
-            cwd=cwd, input=stdin,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=cwd,
+            input=stdin,
         )
         return proc
 
@@ -755,8 +971,10 @@ class HookExecutionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             store = sapper.Store(Path(tmp) / ".sapper")
             store.init("hooktest", "verify hook executes")
-            for event, stdin in (("sessionstart", None),
-                                 ("userpromptsubmit", '{"prompt": "hi"}')):
+            for event, stdin in (
+                ("sessionstart", None),
+                ("userpromptsubmit", '{"prompt": "hi"}'),
+            ):
                 proc = self._run_hook(event, tmp, stdin)
                 self.assertEqual(proc.returncode, 0, msg=proc.stderr)
                 payload = json.loads(proc.stdout)

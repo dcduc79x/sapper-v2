@@ -24,6 +24,7 @@ into the container. LLM calls must go through the gateway
 (direct vendor endpoints); configure the model CLI with env
 vars, not code.
 """
+
 from __future__ import annotations
 
 import json
@@ -45,8 +46,14 @@ _CODE_RE = re.compile(r"^[A-Za-z0-9_.:-]+$")
 class ArenaError(Exception):
     """User-facing arena failure (bad config, HTTP error, bad payload)."""
 
-    def __init__(self, message: str, *, code: str | None = None,
-                 status: int | None = None, detail: dict | None = None):
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str | None = None,
+        status: int | None = None,
+        detail: dict | None = None,
+    ):
         self.code = code
         self.status = status
         self.detail = detail or {}
@@ -116,21 +123,35 @@ class ArenaClient:
         if path.exists():
             raise ArenaError(f"arena config already exists: {path}")
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({
-            "base_url": "https://benchmark.example.com",
-            "token": "ENV:BENCHMARK_TOKEN",
-            "timeout": 30,
-            "_comment": (
-                "Hosted mode needs nothing here - the platform injects "
-                "BENCHMARK_BASE_URL and BENCHMARK_TOKEN. This file is an "
-                "override for local testing / self-hosted runs."
-            ),
-        }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        path.write_text(
+            json.dumps(
+                {
+                    "base_url": "https://benchmark.example.com",
+                    "token": "ENV:BENCHMARK_TOKEN",
+                    "timeout": 30,
+                    "_comment": (
+                        "Hosted mode needs nothing here - the platform injects "
+                        "BENCHMARK_BASE_URL and BENCHMARK_TOKEN. This file is an "
+                        "override for local testing / self-hosted runs."
+                    ),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         return path
 
     # -- transport ---------------------------------------------------------
-    def _request(self, method: str, path: str, *, params: dict | None = None,
-                 body: dict | None = None) -> object:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict | None = None,
+        body: dict | None = None,
+    ) -> object:
         url = self.base_url + path
         if params:
             url += "?" + urllib.parse.urlencode(params)
@@ -159,7 +180,9 @@ class ArenaClient:
                 pass
             raise ArenaError(
                 f"arena {method} {path} -> HTTP {exc.code}: {message}",
-                code=code, status=exc.code, detail=detail,
+                code=code,
+                status=exc.code,
+                detail=detail,
             ) from exc
         except urllib.error.URLError as exc:
             raise ArenaError(f"arena cannot reach {url}: {exc.reason}") from exc
@@ -181,7 +204,9 @@ class ArenaClient:
         if isinstance(data, dict) and "challenges" in data:
             data = data["challenges"]
         if not isinstance(data, list):
-            raise ArenaError(f"challenges endpoint returned {type(data).__name__}, expected list")
+            raise ArenaError(
+                f"challenges endpoint returned {type(data).__name__}, expected list"
+            )
         out = []
         for item in data:
             if isinstance(item, dict) and isinstance(item.get("unique_code"), str):
@@ -189,24 +214,35 @@ class ArenaClient:
         return out
 
     def start_challenge(self, unique_code: str) -> dict:
-        data = self._request("POST", f"{CHALLENGES_PATH}/start",
-                             params={"unique_code": self._code(unique_code)})
+        data = self._request(
+            "POST",
+            f"{CHALLENGES_PATH}/start",
+            params={"unique_code": self._code(unique_code)},
+        )
         return data if isinstance(data, dict) else {"raw": data}
 
     def get_hint(self, unique_code: str) -> dict:
-        data = self._request("GET", f"{CHALLENGES_PATH}/hint",
-                             params={"unique_code": self._code(unique_code)})
+        data = self._request(
+            "GET",
+            f"{CHALLENGES_PATH}/hint",
+            params={"unique_code": self._code(unique_code)},
+        )
         return data if isinstance(data, dict) else {"raw": data}
 
     def submit_flag(self, unique_code: str, flag: str) -> dict:
         if not isinstance(flag, str) or not flag.strip():
             raise ArenaError("cannot submit an empty flag")
-        data = self._request("POST", f"{CHALLENGES_PATH}/submit",
-                             body={"unique_code": self._code(unique_code),
-                                   "flag": flag.strip()})
+        data = self._request(
+            "POST",
+            f"{CHALLENGES_PATH}/submit",
+            body={"unique_code": self._code(unique_code), "flag": flag.strip()},
+        )
         return data if isinstance(data, dict) else {"raw": data}
 
     def close_challenge(self, unique_code: str) -> dict:
-        data = self._request("POST", f"{CHALLENGES_PATH}/close",
-                             params={"unique_code": self._code(unique_code)})
+        data = self._request(
+            "POST",
+            f"{CHALLENGES_PATH}/close",
+            params={"unique_code": self._code(unique_code)},
+        )
         return data if isinstance(data, dict) else {"raw": data}

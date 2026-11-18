@@ -18,6 +18,7 @@ guarded by fcntl.flock so multiple agents can touch it concurrently.
 
 Pure stdlib. See `sapper --help` and SKILL.md.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -162,6 +163,7 @@ def cmd_init(args) -> int:
         raise FGError(f"graph exists at {store.root}; use --force to overwrite")
     if args.force and store.root.exists():
         import shutil
+
         _assert_safe_store_root(store.root, "overwrite")
         # `--force` is an explicit destructive operation.  Do not hold the
         # graph's lock while deleting that lock file itself; another process
@@ -236,7 +238,8 @@ def cmd_pick(args) -> int:
         # asking to claim should skip another worker's lease and choose the
         # next unclaimed item instead of failing on an unrelated lease.
         pool = [
-            i for i in fr
+            i
+            for i in fr
             if not args.claim or not i.get("worker") or i.get("worker") == worker
         ]
     if not pool and args.any:
@@ -308,6 +311,7 @@ def cmd_hint(args) -> int:
 # --------------------------------------------------------------------------- #
 def _load_arena_module():
     import importlib.util
+
     spec = importlib.util.spec_from_file_location(
         "_sapper_arena", Path(__file__).resolve().parent / "arena.py"
     )
@@ -357,7 +361,9 @@ def cmd_flag(args) -> int:
             f"(status={d.get('status', 'recorded')}, challenge={d.get('challenge', '?')})"
         )
     challenge = (args.challenge or "").strip()
-    description = f"flag captured: {value}" + (f" (challenge {challenge})" if challenge else "")
+    description = f"flag captured: {value}" + (
+        f" (challenge {challenge})" if challenge else ""
+    )
     fact = store.add_fact(
         description=description,
         creator=args.creator,
@@ -372,14 +378,19 @@ def cmd_flag(args) -> int:
         return 0
     client = _arena_client(store)
     if not challenge:
-        print("sapper: warning: no --challenge given; submit endpoint may need it", file=sys.stderr)
+        print(
+            "sapper: warning: no --challenge given; submit endpoint may need it",
+            file=sys.stderr,
+        )
     try:
         reply = client.submit_flag(challenge or "-", value)
     except FGError:
         raise
     except Exception as exc:  # ArenaError subclasses Exception
         store.update_flag_fact(fact["id"], "rejected", str(exc))
-        raise FGError(f"submit failed, flag kept as {fact['id']} (recorded): {exc}") from exc
+        raise FGError(
+            f"submit failed, flag kept as {fact['id']} (recorded): {exc}"
+        ) from exc
     raw = json.dumps(reply.get("result", {}), ensure_ascii=False)
     accepted = reply.get("status") == 200
     status = "submitted" if accepted else "rejected"
@@ -399,8 +410,10 @@ def cmd_arena(args) -> int:
         if path.exists():
             raise FGError(f"arena config already exists: {path}")
         written = arena.ArenaClient.write_template(store.root)
-        print(f"wrote {written} - fill in the official API base_url/endpoints, "
-              f"then export SAPPER_ARENA_TOKEN")
+        print(
+            f"wrote {written} - fill in the official API base_url/endpoints, "
+            f"then export SAPPER_ARENA_TOKEN"
+        )
         return 0
     store.require()
     client = _arena_client(store)
@@ -414,8 +427,11 @@ def cmd_arena(args) -> int:
     elif action == "submit":
         reply = client.submit_flag(args.challenge_id, args.flag)
     elif action == "hint":
-        print("sapper: note - official rules deduct score for hints (-10%); "
-              "only ask when genuinely stuck", file=sys.stderr)
+        print(
+            "sapper: note - official rules deduct score for hints (-10%); "
+            "only ask when genuinely stuck",
+            file=sys.stderr,
+        )
         reply = client.get_hint(args.challenge_id)
     else:
         raise FGError(f"unknown arena action {action!r}")
@@ -428,6 +444,7 @@ def cmd_arena(args) -> int:
 # --------------------------------------------------------------------------- #
 def _load_kb_module():
     import importlib.util
+
     spec = importlib.util.spec_from_file_location(
         "_sapper_kb", Path(__file__).resolve().parent / "kb.py"
     )
@@ -468,10 +485,7 @@ def _kb_list(args, kb) -> int:
     entries = kb.list_entries()
     if args.tag:
         wants = {t.strip().lower() for t in args.tag}
-        entries = [
-            e for e in entries
-            if wants & {t.lower() for t in e.get("tags", [])}
-        ]
+        entries = [e for e in entries if wants & {t.lower() for t in e.get("tags", [])}]
     if not entries:
         print(f"(no kb entries matching tag filter at {kb.root})")
         return 0
@@ -506,7 +520,9 @@ def _kb_import(args, module, kb) -> int:
     added = 0
     for f in files:
         parsed = module.import_markdown(
-            f, base_tags=args.tag or [], source=str(f),
+            f,
+            base_tags=args.tag or [],
+            source=str(f),
         )
         entry = kb.add(**parsed)
         print(f"{entry['id']}  {entry['title']}")
@@ -553,35 +569,59 @@ def _bench_store(root: Path, code: str) -> Store:
     return Store(root / code / ".sapper")
 
 
-def _bench_prepare_graph(store: Store, challenge: dict, started: dict,
-                         container_addrs: list[str]) -> None:
+def _bench_prepare_graph(
+    store: Store, challenge: dict, started: dict, container_addrs: list[str]
+) -> None:
     """Create the per-challenge graph with the task facts seeded.
 
     The challenge description and container output are UNTRUSTED DATA; they are
     recorded as facts (which the prompts fence as untrusted), never obeyed.
     """
     if not store.exists():
-        store.init("TSecBench", f"solve challenge {challenge.get('unique_code')} and capture all flags")
+        store.init(
+            "TSecBench",
+            f"solve challenge {challenge.get('unique_code')} and capture all flags",
+        )
     existing = {f["id"] for f in store.list_facts()}
 
     def add(kind, title, description, data):
-        if not any(f.get("kind") == kind and (f.get("data") or {}) == data
-                   for f in store.list_facts()):
-            store.add_fact(description=description, creator="arena", title=title,
-                           kind=kind, data=data)
+        if not any(
+            f.get("kind") == kind and (f.get("data") or {}) == data
+            for f in store.list_facts()
+        ):
+            store.add_fact(
+                description=description,
+                creator="arena",
+                title=title,
+                kind=kind,
+                data=data,
+            )
 
-    add("note", "题目描述", f"challenge {challenge.get('unique_code')}: "
+    add(
+        "note",
+        "题目描述",
+        f"challenge {challenge.get('unique_code')}: "
         f"{challenge.get('description') or '(no description)'}",
-        {"challenge": str(challenge.get("unique_code")), "difficulty": str(challenge.get("difficulty"))})
+        {
+            "challenge": str(challenge.get("unique_code")),
+            "difficulty": str(challenge.get("difficulty")),
+        },
+    )
     for addr in container_addrs:
-        add("host", "靶标", f"target container address {addr}",
-            {"addr": addr, "challenge": str(challenge.get("unique_code"))})
+        add(
+            "host",
+            "靶标",
+            f"target container address {addr}",
+            {"addr": addr, "challenge": str(challenge.get("unique_code"))},
+        )
     # record how many flags are needed
     store.add_hint(
-        content=(f"challenge {challenge.get('unique_code')}: {challenge.get('flag_count')} flag(s) "
-                 f"required, {challenge.get('correct_flag_count', 0)} already correct. "
-                 f"Targets: {', '.join(container_addrs) or 'none'}. "
-                 f"Submit flags with `sapper flag <value> -c <code> --submit`."),
+        content=(
+            f"challenge {challenge.get('unique_code')}: {challenge.get('flag_count')} flag(s) "
+            f"required, {challenge.get('correct_flag_count', 0)} already correct. "
+            f"Targets: {', '.join(container_addrs) or 'none'}. "
+            f"Submit flags with `sapper flag <value> -c <code> --submit`."
+        ),
         creator="arena",
     )
 
@@ -609,9 +649,14 @@ def _bench_submit_recorded(store: Store, code: str) -> int:
         correct = bool(reply.get("correct"))
         award = reply.get("awarded", 0)
         progress = f"{reply.get('correct_flag_count')}/{reply.get('total_flag_count')}"
-        store.update_flag_fact(f["id"], "submitted" if correct else "rejected",
-                               json.dumps(reply, ensure_ascii=False)[:400])
-        print(f"[bench]   {f['id']} {'CORRECT' if correct else 'wrong'} +{award} ({progress})")
+        store.update_flag_fact(
+            f["id"],
+            "submitted" if correct else "rejected",
+            json.dumps(reply, ensure_ascii=False)[:400],
+        )
+        print(
+            f"[bench]   {f['id']} {'CORRECT' if correct else 'wrong'} +{award} ({progress})"
+        )
         submitted += 1
     return submitted
 
@@ -662,7 +707,9 @@ def cmd_bench(args) -> int:
                 started = client.start_challenge(code)
             except FGError as exc:
                 if "max active" in str(exc).lower():
-                    print("[bench] active-container cap reached; closing the oldest and retrying next round")
+                    print(
+                        "[bench] active-container cap reached; closing the oldest and retrying next round"
+                    )
                     break
                 print(f"[bench] {code}: cannot start ({exc})")
                 continue
@@ -678,20 +725,32 @@ def cmd_bench(args) -> int:
                     pass
                 continue
             try:
-                cmd = cli + [
-                    "--store", str(store.root), "auto",
-                    "--minutes", str(args.minutes_per_challenge),
-                    "--max-steps", str(args.max_steps),
-                ] + engine_args
+                cmd = (
+                    cli
+                    + [
+                        "--store",
+                        str(store.root),
+                        "auto",
+                        "--minutes",
+                        str(args.minutes_per_challenge),
+                        "--max-steps",
+                        str(args.max_steps),
+                    ]
+                    + engine_args
+                )
                 subprocess.run(cmd, cwd=str(root / code), check=False)
                 try:
                     _bench_submit_recorded(store, code)
                 except Exception as exc:
-                    print(f"[bench] {code}: flag submission failed ({exc}); "
-                          f"flags stay recorded and will retry next round")
+                    print(
+                        f"[bench] {code}: flag submission failed ({exc}); "
+                        f"flags stay recorded and will retry next round"
+                    )
                 # did we finish it?
                 try:
-                    fresh = {str(c.get("unique_code")): c for c in client.list_challenges()}
+                    fresh = {
+                        str(c.get("unique_code")): c for c in client.list_challenges()
+                    }
                     if fresh.get(code, {}).get("is_completed"):
                         print(f"[bench] {code} COMPLETE")
                 except FGError:
@@ -716,7 +775,9 @@ def cmd_bench(args) -> int:
         time.sleep(args.round_gap_seconds)
 
     done = len([c for c in challenges if c.get("is_completed")])
-    print(f"[bench] finished: {done}/{len(challenges)} complete after {rounds} round(s)")
+    print(
+        f"[bench] finished: {done}/{len(challenges)} complete after {rounds} round(s)"
+    )
     return 0
 
 
@@ -731,8 +792,10 @@ def _bench_parallel(args, client, root, cli, engine_args, todo, deadline) -> int
     backfill for a while).
     """
     limit = args.parallel
-    print(f"[bench] parallel mode: up to {limit} workers "
-          f"(deadline {datetime.fromtimestamp(deadline).strftime('%H:%M') if deadline else 'none'})")
+    print(
+        f"[bench] parallel mode: up to {limit} workers "
+        f"(deadline {datetime.fromtimestamp(deadline).strftime('%H:%M') if deadline else 'none'})"
+    )
     pending = list(todo)
     running: dict[str, tuple[subprocess.Popen, Store]] = {}
     done_flags = 0
@@ -768,13 +831,17 @@ def _bench_parallel(args, client, root, cli, engine_args, todo, deadline) -> int
             except FGError as exc:
                 if "max active" in str(exc).lower():
                     pending.insert(0, ch)  # try again after a slot frees
-                    print("[bench] platform active-container cap reached; waiting for a slot")
+                    print(
+                        "[bench] platform active-container cap reached; waiting for a slot"
+                    )
                     break
                 print(f"[bench] {code}: cannot start ({exc}); will retry next round")
                 pending.append(ch)
                 break
             addrs = list(started.get("container_addr") or [])
-            print(f"[bench] {code} started -> {addrs or '(no addr)'} (workers: {len(running) + 1}/{limit})")
+            print(
+                f"[bench] {code} started -> {addrs or '(no addr)'} (workers: {len(running) + 1}/{limit})"
+            )
             store = _bench_store(root, code)
             try:
                 _bench_prepare_graph(store, ch, started, addrs)
@@ -785,13 +852,22 @@ def _bench_parallel(args, client, root, cli, engine_args, todo, deadline) -> int
                 except FGError:
                     pass
                 continue
-            cmd = cli + [
-                "--store", str(store.root), "auto",
-                "--minutes", str(args.minutes_per_challenge),
-                "--max-steps", str(args.max_steps),
-            ] + engine_args
-            proc = subprocess.Popen(cmd, cwd=str(root / code),
-                                    stdout=sys.stdout, stderr=sys.stderr)
+            cmd = (
+                cli
+                + [
+                    "--store",
+                    str(store.root),
+                    "auto",
+                    "--minutes",
+                    str(args.minutes_per_challenge),
+                    "--max-steps",
+                    str(args.max_steps),
+                ]
+                + engine_args
+            )
+            proc = subprocess.Popen(
+                cmd, cwd=str(root / code), stdout=sys.stdout, stderr=sys.stderr
+            )
             running[code] = (proc, store)
             time.sleep(2)  # stagger starts against API bursts
 
@@ -815,8 +891,10 @@ def _bench_parallel(args, client, root, cli, engine_args, todo, deadline) -> int
     except FGError:
         challenges = []
     done = len([c for c in challenges if c.get("is_completed")])
-    print(f"[bench] finished: {done}/{len(challenges)} complete, "
-          f"{done_flags} flag submission(s) accepted")
+    print(
+        f"[bench] finished: {done}/{len(challenges)} complete, "
+        f"{done_flags} flag submission(s) accepted"
+    )
     return 0
 
 
@@ -838,7 +916,9 @@ def _arena_client_for_root(root: Path):
 def _board_summary(root: Path) -> list[dict]:
     """One-line status per challenge graph under root, for the commander."""
     rows = []
-    for store_dir in sorted(p for p in root.glob("*/.sapper") if (p / "project.json").exists()):
+    for store_dir in sorted(
+        p for p in root.glob("*/.sapper") if (p / "project.json").exists()
+    ):
         try:
             store = Store(store_dir)
             g = build_graph_view(store)
@@ -859,16 +939,18 @@ def _board_summary(root: Path) -> list[dict]:
                     flags_recorded += 1
             if f.get("created_at", "") > last_activity:
                 last_activity = f["created_at"]
-        rows.append({
-            "name": store_dir.parent.name,
-            "status": g["project"]["status"],
-            "goal": (g["project"]["goal"] or "")[:80],
-            "flags_submitted": flags_submitted,
-            "flags_recorded": flags_recorded,
-            "kinds": " ".join(f"{v} {k}" for k, v in sorted(kinds.items())) or "-",
-            "open_intents": len(g["open_intents"]),
-            "last_activity": last_activity or "-",
-        })
+        rows.append(
+            {
+                "name": store_dir.parent.name,
+                "status": g["project"]["status"],
+                "goal": (g["project"]["goal"] or "")[:80],
+                "flags_submitted": flags_submitted,
+                "flags_recorded": flags_recorded,
+                "kinds": " ".join(f"{v} {k}" for k, v in sorted(kinds.items())) or "-",
+                "open_intents": len(g["open_intents"]),
+                "last_activity": last_activity or "-",
+            }
+        )
     return rows
 
 
@@ -903,7 +985,9 @@ def _parse_command_payload(payload: dict) -> tuple[str, str, int, str]:
         raise FGError(f"invalid command payload: {payload}")
     action = data.get("action")
     if action not in ("work", "hire", "fire", "stop"):
-        raise FGError(f"command payload action must be work|hire|fire|stop, got {action!r}")
+        raise FGError(
+            f"command payload action must be work|hire|fire|stop, got {action!r}"
+        )
     if action == "stop":
         return "stop", "", 0, str(data.get("reason", ""))
     target = data.get("target")
@@ -912,7 +996,11 @@ def _parse_command_payload(payload: dict) -> tuple[str, str, int, str]:
     minutes = 0
     if action in ("work", "hire"):
         minutes = data.get("minutes", 20)
-        if isinstance(minutes, bool) or not isinstance(minutes, (int, float)) or minutes < 1:
+        if (
+            isinstance(minutes, bool)
+            or not isinstance(minutes, (int, float))
+            or minutes < 1
+        ):
             raise FGError("command payload 'minutes' must be a positive number")
         minutes = int(minutes)
     note = str(data.get("note", ""))[:300]
@@ -922,7 +1010,9 @@ def _parse_command_payload(payload: dict) -> tuple[str, str, int, str]:
 def _command_fleet_cfg(args) -> dict:
     """Fleet context for the commander: fleet.json in cwd if present, else
     sane defaults so hire/fire work even without a fleet config."""
-    path = Path(args.fleet_file) if getattr(args, "fleet_file", None) else Path(FLEET_FILE)
+    path = (
+        Path(args.fleet_file) if getattr(args, "fleet_file", None) else Path(FLEET_FILE)
+    )
     if path.exists():
         try:
             cfg = _fleet_load(path)
@@ -945,8 +1035,9 @@ def _active_workers(session: str) -> set[str]:
     return {w[2:] for w in proc.stdout.split() if w.startswith("w-")}
 
 
-def _hire_worker(cfg: dict, target: str, minutes: int, max_steps: int = 8,
-                 extra: str = "") -> bool:
+def _hire_worker(
+    cfg: dict, target: str, minutes: int, max_steps: int = 8, extra: str = ""
+) -> bool:
     """Spawn (or reuse) a tmux worker window w-<target> running `auto`.
     Returns False if a worker is already running for that target."""
     session = cfg["session"]
@@ -1024,13 +1115,23 @@ def _command_setup(args) -> _CommandCtx:
     fleet_cfg = _command_fleet_cfg(args)
     fleet_cfg["_base_dir"] = str(Path.cwd())
     session = fleet_cfg["session"]
-    print(f"[command] field commander over {root}  "
-          f"deadline {datetime.fromtimestamp(deadline).strftime('%H:%M')}")
+    print(
+        f"[command] field commander over {root}  "
+        f"deadline {datetime.fromtimestamp(deadline).strftime('%H:%M')}"
+    )
     print(f"[command] fleet session {session!r} (hire/fire via tmux windows w-*)")
     return _CommandCtx(
-        args=args, root=root, deadline=deadline, templates_dir=templates_dir,
-        model=args.model, timeout=args.timeout, skip=args.skip_permissions,
-        cli=cli, passthrough=passthrough, fleet_cfg=fleet_cfg, session=session,
+        args=args,
+        root=root,
+        deadline=deadline,
+        templates_dir=templates_dir,
+        model=args.model,
+        timeout=args.timeout,
+        skip=args.skip_permissions,
+        cli=cli,
+        passthrough=passthrough,
+        fleet_cfg=fleet_cfg,
+        session=session,
         tpl=_load_template(templates_dir, "command.md"),
     )
 
@@ -1043,30 +1144,54 @@ def _command_decide(ctx: _CommandCtx, rows: list[dict], workers: set[str]):
     minutes = min(args.minutes_default, remaining_min)
     note = ""
     try:
-        prompt = _replace_placeholders(ctx.tpl, {
-            "board": render_board(rows),
-            "time_budget": format_time_budget(ctx.deadline),
-        })
+        prompt = _replace_placeholders(
+            ctx.tpl,
+            {
+                "board": render_board(rows),
+                "time_budget": format_time_budget(ctx.deadline),
+            },
+        )
         envelope = run_claude(
-            prompt, model=ctx.model, timeout=ctx.timeout, skip_permissions=False,
-            append_system=None, cwd=Path.cwd(),
+            prompt,
+            model=ctx.model,
+            timeout=ctx.timeout,
+            skip_permissions=False,
+            append_system=None,
+            cwd=Path.cwd(),
         )
         action, target, minutes_raw, note = _parse_command_payload(
             extract_json_object(envelope.get("result", ""))
         )
-        minutes = max(1, min(int(minutes_raw or minutes), args.minutes_max, remaining_min))
+        minutes = max(
+            1, min(int(minutes_raw or minutes), args.minutes_max, remaining_min)
+        )
     except FGError as exc:
         print(f"[command] model decision failed ({exc}); falling back to round-robin")
         free = [r for r in rows if r["name"] not in workers]
-        row = next((r for r in free if ctx.worked.get(r["name"], 0) == min(ctx.worked.values() or [0])), rows[0])
-        action, target, minutes = "work", row["name"], min(args.minutes_default, remaining_min)
+        row = next(
+            (
+                r
+                for r in free
+                if ctx.worked.get(r["name"], 0) == min(ctx.worked.values() or [0])
+            ),
+            rows[0],
+        )
+        action, target, minutes = (
+            "work",
+            row["name"],
+            min(args.minutes_default, remaining_min),
+        )
         note = "round-robin fallback"
     return action, target, minutes, note, remaining_min
 
 
 def _command_apply(
-    ctx: _CommandCtx, names: set[str], action: str, target: str,
-    minutes: int, note: str,
+    ctx: _CommandCtx,
+    names: set[str],
+    action: str,
+    target: str,
+    minutes: int,
+    note: str,
 ) -> str:
     """Dispatch one decision. Returns 'continue', 'break' or 'next'."""
     args = ctx.args
@@ -1088,24 +1213,41 @@ def _command_apply(
     ctx.noop_streak = 0
     ctx.worked[target] = ctx.worked.get(target, 0) + minutes
     if action == "hire":
-        spawned = _hire_worker(ctx.fleet_cfg, target, minutes,
-                               max_steps=args.max_steps,
-                               extra=" ".join(ctx.passthrough[1:]))
+        spawned = _hire_worker(
+            ctx.fleet_cfg,
+            target,
+            minutes,
+            max_steps=args.max_steps,
+            extra=" ".join(ctx.passthrough[1:]),
+        )
         tag = "hired" if spawned else "already has a worker"
         print(f"[command] hire {target} for {minutes}m -> {tag} ({note})")
         time.sleep(args.poll_seconds)
         return "continue"
     if action == "fire":
         killed = _fire_worker(ctx.session, target)
-        print(f"[command] fire {target} -> {'released' if killed else 'no worker'} ({note})")
+        print(
+            f"[command] fire {target} -> {'released' if killed else 'no worker'} ({note})"
+        )
         time.sleep(args.poll_seconds)
         return "continue"
-    print(f"\n[command] -> {target} for {minutes}m ({note}) "
-          f"[{format_time_budget(ctx.deadline)}]")
-    cmd = ctx.cli + [
-        "--store", str(ctx.root / target / ".sapper"), "auto",
-        "--minutes", str(minutes), "--max-steps", str(args.max_steps),
-    ] + ctx.passthrough
+    print(
+        f"\n[command] -> {target} for {minutes}m ({note}) "
+        f"[{format_time_budget(ctx.deadline)}]"
+    )
+    cmd = (
+        ctx.cli
+        + [
+            "--store",
+            str(ctx.root / target / ".sapper"),
+            "auto",
+            "--minutes",
+            str(minutes),
+            "--max-steps",
+            str(args.max_steps),
+        ]
+        + ctx.passthrough
+    )
     subprocess.run(cmd, cwd=str(ctx.root / target), check=False)
     return "next"
 
@@ -1114,7 +1256,9 @@ def _command_final_board(root: Path) -> None:
     print("[command] final board:")
     for r in _board_summary(root):
         mark = "DONE" if r["status"] == "completed" else r["status"]
-        print(f"[command]   {r['name']}: {mark}  flags={r['flags_submitted']}/{r['flags_recorded']}")
+        print(
+            f"[command]   {r['name']}: {mark}  flags={r['flags_submitted']}/{r['flags_recorded']}"
+        )
 
 
 def cmd_command(args) -> int:
@@ -1154,7 +1298,11 @@ FLEET_TEMPLATE = {
     "deadline": "2026-10-17T13:00:00",
     "panes": [
         {"name": "commander", "type": "command", "extra_args": "--verify"},
-        {"name": "board", "type": "shell", "command": "watch -n 30 'sapper sweep-status --root runs 2>/dev/null || ls runs'"},
+        {
+            "name": "board",
+            "type": "shell",
+            "command": "watch -n 30 'sapper sweep-status --root runs 2>/dev/null || ls runs'",
+        },
     ],
     "_comment": (
         "types: command (sapper command --root ROOT --deadline D), "
@@ -1226,15 +1374,19 @@ def cmd_fleet(args) -> int:
     if args.action == "init":
         if path.exists():
             raise FGError(f"fleet config already exists: {path}")
-        path.write_text(json.dumps(FLEET_TEMPLATE, ensure_ascii=False, indent=2) + "\n",
-                        encoding="utf-8")
+        path.write_text(
+            json.dumps(FLEET_TEMPLATE, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
         print(f"wrote {path} - edit deadline/panes, then `sapper fleet up`")
         return 0
     if args.action == "up":
         cfg = _fleet_load(path)
         session = cfg["session"]
         if _tmux("has-session", "-t", session, check=False).returncode == 0:
-            raise FGError(f"tmux session {session!r} already exists; `sapper fleet down` first")
+            raise FGError(
+                f"tmux session {session!r} already exists; `sapper fleet down` first"
+            )
         _tmux("new-session", "-d", "-s", session)
         first = True
         for pane in cfg["panes"]:
@@ -1254,8 +1406,10 @@ def cmd_fleet(args) -> int:
             _tmux("send-keys", "-t", f"{session}:{name}", "Enter")
             os.unlink(buf.name)
             print(f"[fleet] {name}: {command}")
-        print(f"[fleet] session {session!r} up - detach with Ctrl-b d; "
-              f"loops run unattended. `sapper fleet down` to stop.")
+        print(
+            f"[fleet] session {session!r} up - detach with Ctrl-b d; "
+            f"loops run unattended. `sapper fleet down` to stop."
+        )
         return 0
     if args.action == "down":
         cfg = _fleet_load(path)
@@ -1267,25 +1421,46 @@ def cmd_fleet(args) -> int:
         print(f"[fleet] session {session!r} killed")
         return 0
     if args.action == "hire":
-        cfg = _fleet_load(path) if path.exists() else {"session": "sapper-fleet", "root": "runs"}
+        cfg = (
+            _fleet_load(path)
+            if path.exists()
+            else {"session": "sapper-fleet", "root": "runs"}
+        )
         cfg["_base_dir"] = str(Path.cwd())
         if not args.target:
             raise FGError("fleet hire needs --target <challenge>")
         minutes = args.minutes or 30
-        spawned = _hire_worker(cfg, args.target, minutes, max_steps=args.max_steps or 8,
-                               extra=args.extra_args or "")
-        print(f"[fleet] hire {args.target}: "
-              f"{'worker window w-%s up' % args.target if spawned else 'worker already running'}")
+        spawned = _hire_worker(
+            cfg,
+            args.target,
+            minutes,
+            max_steps=args.max_steps or 8,
+            extra=args.extra_args or "",
+        )
+        print(
+            f"[fleet] hire {args.target}: "
+            f"{'worker window w-%s up' % args.target if spawned else 'worker already running'}"
+        )
         return 0
     if args.action == "fire":
-        cfg = _fleet_load(path) if path.exists() else {"session": "sapper-fleet", "root": "runs"}
+        cfg = (
+            _fleet_load(path)
+            if path.exists()
+            else {"session": "sapper-fleet", "root": "runs"}
+        )
         if not args.target:
             raise FGError("fleet fire needs --target <challenge>")
         killed = _fire_worker(cfg["session"], args.target)
-        print(f"[fleet] fire {args.target}: {'released' if killed else 'no worker running'}")
+        print(
+            f"[fleet] fire {args.target}: {'released' if killed else 'no worker running'}"
+        )
         return 0
     if args.action == "workers":
-        cfg = _fleet_load(path) if path.exists() else {"session": "sapper-fleet", "root": "runs"}
+        cfg = (
+            _fleet_load(path)
+            if path.exists()
+            else {"session": "sapper-fleet", "root": "runs"}
+        )
         workers = sorted(_active_workers(cfg["session"]))
         print("hired workers: " + (", ".join(workers) if workers else "(none)"))
         return 0
@@ -1295,8 +1470,13 @@ def cmd_fleet(args) -> int:
         if _tmux("has-session", "-t", session, check=False).returncode != 0:
             print(f"session {session!r}: not running")
             return 0
-        proc = _tmux("list-windows", "-t", session, "-F",
-                     "#I #W active=#{window_active} #{pane_current_command}")
+        proc = _tmux(
+            "list-windows",
+            "-t",
+            session,
+            "-F",
+            "#I #W active=#{window_active} #{pane_current_command}",
+        )
         print(f"session {session!r}:\n{proc.stdout.strip()}")
         return 0
     raise FGError(f"unknown fleet action {args.action!r}")
@@ -1322,9 +1502,7 @@ def cmd_sweep(args) -> int:
     root = Path(args.root)
     if not root.is_dir():
         raise FGError(f"sweep root {root} is not a directory")
-    graph_dirs = sorted(
-        p.parent for p in root.glob("*/.sapper/project.json")
-    )
+    graph_dirs = sorted(p.parent for p in root.glob("*/.sapper/project.json"))
     if not graph_dirs:
         raise FGError(f"no */.sapper/project.json found under {root}")
     deadline = deadline_from_args(args)
@@ -1343,8 +1521,10 @@ def cmd_sweep(args) -> int:
         passthrough.extend(["--templates", args.templates])
 
     print(f"[sweep] {len(graph_dirs)} challenge graph(s) under {root}")
-    print(f"[sweep] deadline {datetime.fromtimestamp(deadline).strftime('%H:%M')} "
-          f"({format_time_budget(deadline)})")
+    print(
+        f"[sweep] deadline {datetime.fromtimestamp(deadline).strftime('%H:%M')} "
+        f"({format_time_budget(deadline)})"
+    )
     while time.time() < deadline:
         pending = []
         for d in graph_dirs:
@@ -1362,13 +1542,23 @@ def cmd_sweep(args) -> int:
             if remaining <= 0:
                 break
             budget = min(args.minutes_per, max(1, int(remaining // 60)))
-            print(f"\n[sweep] {d.name}: auto for {budget}m "
-                  f"({len(pending)} pending, {format_time_budget(deadline)})")
-            cmd = cli + [
-                "--store", str(d / ".sapper"), "auto",
-                "--minutes", str(budget),
-                "--max-steps", str(args.max_steps),
-            ] + passthrough
+            print(
+                f"\n[sweep] {d.name}: auto for {budget}m "
+                f"({len(pending)} pending, {format_time_budget(deadline)})"
+            )
+            cmd = (
+                cli
+                + [
+                    "--store",
+                    str(d / ".sapper"),
+                    "auto",
+                    "--minutes",
+                    str(budget),
+                    "--max-steps",
+                    str(args.max_steps),
+                ]
+                + passthrough
+            )
             subprocess.run(cmd, cwd=str(d), check=False)
 
     done = 0
@@ -1425,8 +1615,11 @@ def cmd_doc(args) -> int:
             new_doc = args.set
         new_doc = new_doc.strip() if isinstance(new_doc, str) else None
         node = store.update_doc(args.id, new_doc, expected_doc=expected_doc)
-        print(f"updated doc for {args.id} ({len(node['doc'] or '')} chars)" if node["doc"]
-              else f"cleared doc for {args.id}")
+        print(
+            f"updated doc for {args.id} ({len(node['doc'] or '')} chars)"
+            if node["doc"]
+            else f"cleared doc for {args.id}"
+        )
         return 0
 
     # READ path: print the doc (or note its absence)
@@ -1434,7 +1627,9 @@ def cmd_doc(args) -> int:
     if doc:
         print(doc)
     else:
-        sys.stderr.write(f"{args.id} has no doc. add one: sapper doc {args.id} --set '...' or --edit\n")
+        sys.stderr.write(
+            f"{args.id} has no doc. add one: sapper doc {args.id} --set '...' or --edit\n"
+        )
         return 1
     return 0
 
@@ -1468,8 +1663,11 @@ def cmd_recall(args) -> int:
 def _edit_via_editor(initial: str, title: str) -> str:
     import subprocess
     import tempfile
+
     editor = os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vi"
-    with tempfile.NamedTemporaryFile("w+", suffix=".md", delete=False, encoding="utf-8") as fh:
+    with tempfile.NamedTemporaryFile(
+        "w+", suffix=".md", delete=False, encoding="utf-8"
+    ) as fh:
         fh.write(initial)
         tmp = fh.name
     try:
@@ -1501,8 +1699,13 @@ def cmd_done(args) -> int:
     store.require()
     # atomic fact-create + conclude (no orphan if intent already done - review H1)
     fact, intent = store.conclude_with_new_fact(
-        args.id, args.fact, args.worker, title=args.title, doc=_read_doc_arg(args),
-        kind=args.kind, data=parse_kv_pairs(args.data),
+        args.id,
+        args.fact,
+        args.worker,
+        title=args.title,
+        doc=_read_doc_arg(args),
+        kind=args.kind,
+        data=parse_kv_pairs(args.data),
     )
     print(f"{args.id} -> {fact['id']}  ({intent['status']})")
     return 0
@@ -1546,9 +1749,13 @@ def cmd_dispatch(args) -> int:
     elif args.target == "verify":
         return _dispatch_verify(store, templates_dir, model, timeout, skip, cwd, args)
     elif args.target == "blindspot":
-        return _dispatch_blindspot(store, templates_dir, model, timeout, skip, cwd, args)
+        return _dispatch_blindspot(
+            store, templates_dir, model, timeout, skip, cwd, args
+        )
     elif args.target == "brainstorm":
-        return _dispatch_brainstorm(store, templates_dir, model, timeout, skip, cwd, args)
+        return _dispatch_brainstorm(
+            store, templates_dir, model, timeout, skip, cwd, args
+        )
     else:
         # treat as intent id -> explore
         intent = store.get_intent(args.target)
@@ -1566,13 +1773,13 @@ def _agents_system_prompt(store: Store) -> str:
         "  sapper status                  # see project + open intents + flag ledger\n"
         "  sapper graph                   # full graph (facts + intents)\n"
         "  sapper show fact <id>          # detail\n"
-        "  sapper fact \"<text>\" -k <kind> -d key=value   # record a TYPED fact\n"
+        '  sapper fact "<text>" -k <kind> -d key=value   # record a TYPED fact\n'
         "    kinds: host service cred vuln loot flag note\n"
-        "  sapper flag \"flag{...}\" -c <challenge> [--submit]   # capture a flag NOW\n"
+        '  sapper flag "flag{...}" -c <challenge> [--submit]   # capture a flag NOW\n'
         "  sapper arena challenges|start|submit|hint ...        # platform API (if configured)\n"
-        "  sapper kb search \"<keywords>\"                       # offline technique/CVE kb\n"
+        '  sapper kb search "<keywords>"                       # offline technique/CVE kb\n'
         "  sapper kb show <kb-id>                               # full kb entry (methods+commands)\n"
-        "  sapper done <intent> --fact \"<text>\" -k <kind> -d key=value  # conclude an intent\n"
+        '  sapper done <intent> --fact "<text>" -k <kind> -d key=value  # conclude an intent\n'
         "Rules: record only confirmed observations - a scanner warning is not a vuln. "
         "Cite exact commands, hosts/ports, response evidence. Stay scoped to the "
         "assigned intent and the authorized targets. Capture flags immediately; "
@@ -1591,14 +1798,19 @@ def _agents_system_prompt(store: Store) -> str:
 
 def _dispatch_reason(store, templates_dir, model, timeout, skip, cwd, args) -> int:
     tpl = _load_template(templates_dir, "reason.md")
-    prompt = render_prompt(store, tpl, time_budget=getattr(args, "time_budget", "") or "")
+    prompt = render_prompt(
+        store, tpl, time_budget=getattr(args, "time_budget", "") or ""
+    )
     if args.dry_run:
         print(prompt)
         return 0
     envelope = run_claude(
         prompt,
-        model=model, timeout=timeout, skip_permissions=skip,
-        append_system=None, cwd=cwd,
+        model=model,
+        timeout=timeout,
+        skip_permissions=skip,
+        append_system=None,
+        cwd=cwd,
     )
     text = envelope.get("result", "")
     payload = extract_json_object(text)
@@ -1614,15 +1826,23 @@ def _worker_id(model: str) -> str:
     return f"{model}-{os.getpid()}"
 
 
-def _dispatch_explore(store, templates_dir, intent, model, timeout, skip, cwd, args) -> int:
+def _dispatch_explore(
+    store, templates_dir, intent, model, timeout, skip, cwd, args
+) -> int:
     # idempotency: if the intent is already concluded, a prior dispatch already
     # ran an executor for it. Re-dispatching would waste a model call AND fail
     # to write back. Report the existing result instead.
     if intent["to"] is not None:
         fact = store.get_fact(intent["to"])
-        print(f"[explore] {intent['id']} already concluded -> {fact['id']}: {fact['description']}")
+        print(
+            f"[explore] {intent['id']} already concluded -> {fact['id']}: {fact['description']}"
+        )
         return 0
-    if not args.dry_run and intent.get("requires_confirmation") and not intent.get("confirmed_at"):
+    if (
+        not args.dry_run
+        and intent.get("requires_confirmation")
+        and not intent.get("confirmed_at")
+    ):
         raise FGError(
             f"intent {intent['id']} requires confirmation; run `sapper confirm {intent['id']}` first"
         )
@@ -1644,8 +1864,11 @@ def _dispatch_explore(store, templates_dir, intent, model, timeout, skip, cwd, a
         store.claim_intent(intent["id"], worker)
     envelope = run_claude(
         prompt,
-        model=model, timeout=timeout, skip_permissions=skip,
-        append_system=_agents_system_prompt(store), cwd=cwd,
+        model=model,
+        timeout=timeout,
+        skip_permissions=skip,
+        append_system=_agents_system_prompt(store),
+        cwd=cwd,
     )
     text = envelope.get("result", "")
     payload = extract_json_object(text)
@@ -1653,7 +1876,13 @@ def _dispatch_explore(store, templates_dir, intent, model, timeout, skip, cwd, a
     # record the produced fact AND link the intent atomically - no orphan fact
     # if a concurrent executor already concluded this intent (review C1/H1).
     fact, intent = store.conclude_with_new_fact(
-        intent["id"], desc, worker, title=title, doc=doc, kind=kind, data=fdata,
+        intent["id"],
+        desc,
+        worker,
+        title=title,
+        doc=doc,
+        kind=kind,
+        data=fdata,
     )
     print(f"[explore] {intent['id']} -> {fact['id']}: {desc}")
     return 0
@@ -1667,16 +1896,23 @@ def _dispatch_verify(store, templates_dir, model, timeout, skip, cwd, args) -> i
         raise FGError(f"intent {args.intent} not concluded yet")
     fact = store.get_fact(intent["to"])
     tpl = _load_template(templates_dir, "verify.md")
-    prompt = _replace_placeholders(tpl, {
-        "intent_description": _scrub_inline(intent["description"]),
-        "result_description": _scrub_inline(fact["description"]),
-    })
+    prompt = _replace_placeholders(
+        tpl,
+        {
+            "intent_description": _scrub_inline(intent["description"]),
+            "result_description": _scrub_inline(fact["description"]),
+        },
+    )
     if args.dry_run:
         print(prompt)
         return 0
     envelope = run_claude(
-        prompt, model=model, timeout=timeout, skip_permissions=skip,
-        append_system=None, cwd=cwd,
+        prompt,
+        model=model,
+        timeout=timeout,
+        skip_permissions=skip,
+        append_system=None,
+        cwd=cwd,
     )
     text = envelope.get("result", "")
     payload = extract_json_object(text)
@@ -1696,8 +1932,11 @@ def _dispatch_blindspot(store, templates_dir, model, timeout, skip, cwd, args) -
         return 0
     envelope = run_claude(
         prompt,
-        model=model, timeout=timeout, skip_permissions=skip,
-        append_system=None, cwd=cwd,
+        model=model,
+        timeout=timeout,
+        skip_permissions=skip,
+        append_system=None,
+        cwd=cwd,
     )
     text = envelope.get("result", "")
     payload = extract_json_object(text)
@@ -1755,8 +1994,11 @@ def _dispatch_brainstorm(store, templates_dir, model, timeout, skip, cwd, args) 
         return 0
     envelope = run_claude(
         prompt,
-        model=model, timeout=timeout, skip_permissions=skip,
-        append_system=None, cwd=cwd,
+        model=model,
+        timeout=timeout,
+        skip_permissions=skip,
+        append_system=None,
+        cwd=cwd,
     )
     text = envelope.get("result", "")
     payload = extract_json_object(text)
@@ -1765,7 +2007,9 @@ def _dispatch_brainstorm(store, templates_dir, model, timeout, skip, cwd, args) 
     return 0
 
 
-def _apply_brainstorm(store: Store, payload: dict, max_options: int | None = None) -> str:
+def _apply_brainstorm(
+    store: Store, payload: dict, max_options: int | None = None
+) -> str:
     """Parse brainstorm output: create requires_confirmation intents for each option."""
     if not isinstance(payload, dict):
         raise FGError("brainstorm payload must be a JSON object")
@@ -1814,7 +2058,9 @@ def _apply_brainstorm(store: Store, payload: dict, max_options: int | None = Non
             effort = "medium"
         raw_doc = opt.get("doc", "")
         doc_text = raw_doc.strip() if isinstance(raw_doc, str) else ""
-        doc_text = f"[brainstorm batch: {batch_tag}]\n[effort: {effort}]\n\n{doc_text}".strip()
+        doc_text = (
+            f"[brainstorm batch: {batch_tag}]\n[effort: {effort}]\n\n{doc_text}".strip()
+        )
         intent = store.add_intent(
             from_ids=from_ids,
             description=desc,
@@ -1838,7 +2084,9 @@ def cmd_brainstorm_pick(args) -> int:
     if picked["to"] is not None:
         raise FGError(f"{picked_id} already concluded")
     if not picked["requires_confirmation"]:
-        raise FGError(f"{picked_id} is not a brainstorm option (no confirmation required)")
+        raise FGError(
+            f"{picked_id} is not a brainstorm option (no confirmation required)"
+        )
     doc = picked.get("doc") or ""
     batch_tag = None
     for line in doc.split("\n"):
@@ -1866,7 +2114,9 @@ def cmd_brainstorm_pick(args) -> int:
                 allow_unconfirmed=True,
             )
             abandoned.append(i["id"])
-    print(f"confirmed {picked_id}, abandoned {len(abandoned)} sibling(s): {', '.join(abandoned) or '(none)'}")
+    print(
+        f"confirmed {picked_id}, abandoned {len(abandoned)} sibling(s): {', '.join(abandoned) or '(none)'}"
+    )
     return 0
 
 
@@ -1883,8 +2133,10 @@ def _classify_reason_payload(payload: dict) -> tuple[str, dict | list | None]:
         raise FGError("reason payload must be a JSON object")
     if payload.get("accepted") is False:
         return "rejected", None
-    data = payload.get("data") if isinstance(payload.get("data"), dict) else (
-        payload if _looks_reason(payload) else None
+    data = (
+        payload.get("data")
+        if isinstance(payload.get("data"), dict)
+        else (payload if _looks_reason(payload) else None)
     )
     if data is None:
         raise FGError(f"unrecognized reason payload: {payload}")
@@ -1952,18 +2204,24 @@ def _apply_reason(store: Store, kind: str, data) -> str:
             d = it.get("doc")
             d = d.strip() if isinstance(d, str) and d.strip() else None
             intent = store.add_intent(
-                from_ids=from_ids, description=desc, creator="reason",
-                requires_confirmation=req, title=t, doc=d,
+                from_ids=from_ids,
+                description=desc,
+                creator="reason",
+                requires_confirmation=req,
+                title=t,
+                doc=d,
             )
             made.append(intent["id"])
         return f"proposed intents: {', '.join(made) if made else '(none valid)'}"
     return "unknown"
 
 
-def _parse_explore_payload(payload: dict) -> tuple[str | None, str, str | None, str | None, dict | None]:
+def _parse_explore_payload(
+    payload: dict,
+) -> tuple[str | None, str, str | None, str | None, dict | None]:
     """Return (title, description, doc, kind, data). title/doc/kind/data may be None."""
     if payload.get("accepted") is False:
-        raise FGError(f"executor rejected: {payload.get('reason','')}")
+        raise FGError(f"executor rejected: {payload.get('reason', '')}")
     data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
     if not isinstance(data, dict):
         raise FGError(f"invalid explore payload: {payload}")
@@ -1974,7 +2232,9 @@ def _parse_explore_payload(payload: dict) -> tuple[str | None, str, str | None, 
     title = title.strip() if isinstance(title, str) and title.strip() else None
     doc = data.get("doc")
     doc = doc.strip() if isinstance(doc, str) and doc.strip() else None
-    kind = normalize_fact_kind(data.get("kind") if isinstance(data.get("kind"), str) else None)
+    kind = normalize_fact_kind(
+        data.get("kind") if isinstance(data.get("kind"), str) else None
+    )
     fdata = data.get("data") if isinstance(data.get("data"), dict) else None
     deviations = data.get("deviations")
     if isinstance(deviations, list) and deviations:
@@ -1984,7 +2244,9 @@ def _parse_explore_payload(payload: dict) -> tuple[str | None, str, str | None, 
                 planned = d.get("planned", "")
                 actual = d.get("actual", "")
                 reason = d.get("reason", "")
-                lines.append(f"- **Planned:** {planned} → **Actual:** {actual} - *Reason:* {reason}")
+                lines.append(
+                    f"- **Planned:** {planned} → **Actual:** {actual} - *Reason:* {reason}"
+                )
         if len(lines) > 1:
             doc = (doc or "") + "\n".join(lines)
     return title, desc.strip(), doc, kind, fdata
@@ -2026,6 +2288,7 @@ def _load_settings_patch():
     """Load the settings patcher without importing it as a package."""
     try:
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(
             "_fg_settings_patch", _skill_root() / "lib" / "_settings_patch.py"
         )
@@ -2065,7 +2328,7 @@ def cmd_setup(args) -> int:
     if not store.exists():
         if not args.goal:
             raise FGError(
-                "no .sapper/ here. Pass --goal \"<one-line goal>\" to create one, "
+                'no .sapper/ here. Pass --goal "<one-line goal>" to create one, '
                 "or run from a directory that already has a graph."
             )
         store.init(origin=args.origin or "", goal=args.goal)
@@ -2141,11 +2404,10 @@ def cmd_teardown(args) -> int:
             agents_text = ap.read_text(encoding="utf-8")
         except OSError:
             agents_text = ""
-        generated = (
-            agents_text.startswith(_AGENTS_MARKER)
-            or agents_text == _AGENTS_SPEC.format(
-                store=str(Path(args.store).resolve()), marker=_AGENTS_MARKER
-            )
+        generated = agents_text.startswith(
+            _AGENTS_MARKER
+        ) or agents_text == _AGENTS_SPEC.format(
+            store=str(Path(args.store).resolve()), marker=_AGENTS_MARKER
         )
         if generated:
             ap.unlink()
@@ -2155,6 +2417,7 @@ def cmd_teardown(args) -> int:
 
     if args.purge:
         import shutil
+
         store_root = Path(args.store)
         if store_root.exists():
             _assert_safe_store_root(store_root, "purge")
@@ -2233,15 +2496,14 @@ def cmd_view(args) -> int:
 def _try_open(path: Path) -> bool:
     import shutil
     import subprocess
-    opener = (
-        shutil.which("xdg-open")
-        or shutil.which("open")
-        or shutil.which("wslview")
-    )
+
+    opener = shutil.which("xdg-open") or shutil.which("open") or shutil.which("wslview")
     if not opener:
         return False
     try:
-        subprocess.Popen([opener, str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(
+            [opener, str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
         return True
     except Exception:
         return False
@@ -2259,6 +2521,7 @@ def _view_serve(store: Store, args) -> int:
     # knows the default path (review M1/codex#4). Kept off the URL the browser
     # opens, baked into the served HTML instead.
     import secrets
+
     token = secrets.token_hex(12)
     poll_path = f"/__sapper_graph__/{token}.json"
 
@@ -2306,8 +2569,10 @@ def _view_serve(store: Store, args) -> int:
     print(f"[view] serving fact-graph  →  {url}")
     print(f"[view] polling JSON at     →  http://{host}:{port}{poll_path}")
     if host not in ("127.0.0.1", "localhost", "::1"):
-        print("[view] WARNING: bound to a non-loopback host - the graph is "
-              "readable by anyone who reaches this port.")
+        print(
+            "[view] WARNING: bound to a non-loopback host - the graph is "
+            "readable by anyone who reaches this port."
+        )
     print("[view] the page auto-refreshes every 2s. Ctrl-C to stop.")
 
     class Server(socketserver.ThreadingTCPServer):
@@ -2330,10 +2595,13 @@ def _view_serve(store: Store, args) -> int:
 def _try_open_url(url: str) -> None:
     import shutil
     import subprocess
+
     opener = shutil.which("xdg-open") or shutil.which("open")
     if opener:
         try:
-            subprocess.Popen([opener, url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen(
+                [opener, url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
         except Exception:
             pass
 
@@ -2418,14 +2686,26 @@ def _auto_setup(args) -> _AutoCtx:
         raise FGError("--max-explore must be at least 1")
     deadline = deadline_from_args(args)
     if deadline is not None:
-        print(f"[auto] deadline {datetime.fromtimestamp(deadline).strftime('%Y-%m-%d %H:%M')} "
-              f"({format_time_budget(deadline)})")
-    print(f"[auto] start  model={args.model} max_steps={args.max_steps} verify={args.verify}")
+        print(
+            f"[auto] deadline {datetime.fromtimestamp(deadline).strftime('%Y-%m-%d %H:%M')} "
+            f"({format_time_budget(deadline)})"
+        )
+    print(
+        f"[auto] start  model={args.model} max_steps={args.max_steps} verify={args.verify}"
+    )
     return _AutoCtx(
-        store=store, args=args, templates_dir=Path(args.templates),
-        model=args.model, timeout=args.timeout, skip=args.skip_permissions,
-        cwd=Path.cwd(), max_steps=args.max_steps, max_explore=args.max_explore,
-        verify=args.verify, dry=args.dry_run, deadline=deadline,
+        store=store,
+        args=args,
+        templates_dir=Path(args.templates),
+        model=args.model,
+        timeout=args.timeout,
+        skip=args.skip_permissions,
+        cwd=Path.cwd(),
+        max_steps=args.max_steps,
+        max_explore=args.max_explore,
+        verify=args.verify,
+        dry=args.dry_run,
+        deadline=deadline,
     )
 
 
@@ -2435,12 +2715,24 @@ def _auto_reason(ctx: _AutoCtx, step: int) -> tuple[str, str | None]:
     if ctx.dry:
         # dry-run prints the rendered prompt; it never mutates the graph,
         # so one pass is enough (review L5: don't repeat max_steps times).
-        _dispatch_reason(ctx.store, ctx.templates_dir, ctx.model, ctx.timeout,
-                         ctx.skip, ctx.cwd, ctx.args)
+        _dispatch_reason(
+            ctx.store,
+            ctx.templates_dir,
+            ctx.model,
+            ctx.timeout,
+            ctx.skip,
+            ctx.cwd,
+            ctx.args,
+        )
         return "break", None
     try:
         kind, summary = _run_reason_raw(
-            ctx.store, ctx.templates_dir, ctx.model, ctx.timeout, ctx.skip, ctx.cwd,
+            ctx.store,
+            ctx.templates_dir,
+            ctx.model,
+            ctx.timeout,
+            ctx.skip,
+            ctx.cwd,
             time_budget=getattr(ctx.args, "time_budget", "") or "",
         )
         ctx.reason_failures = 0
@@ -2448,7 +2740,9 @@ def _auto_reason(ctx: _AutoCtx, step: int) -> tuple[str, str | None]:
         ctx.reason_failures += 1
         print(f"[auto] step {step}: reason failed ({ctx.reason_failures}): {exc}")
         if ctx.reason_failures >= 2:
-            print("[auto] reason failed twice in a row - stopping this challenge (graph preserved)")
+            print(
+                "[auto] reason failed twice in a row - stopping this challenge (graph preserved)"
+            )
             return "break", None
         time.sleep(15)
         return "continue", None
@@ -2479,11 +2773,18 @@ def _auto_verify(ctx: _AutoCtx, step: int, intent: dict) -> None:
     print(f"[auto] step {step}.3 verify {iid}")
     try:
         verified, issues = _run_verify_raw(
-            ctx.store, ctx.templates_dir, refreshed, ctx.model, ctx.timeout,
-            ctx.skip, ctx.cwd,
+            ctx.store,
+            ctx.templates_dir,
+            refreshed,
+            ctx.model,
+            ctx.timeout,
+            ctx.skip,
+            ctx.cwd,
         )
         tag = "VERIFIED" if verified else "FAILED"
-        print(f"[auto]        verify {iid} -> {tag}" + (f": {issues}" if issues else ""))
+        print(
+            f"[auto]        verify {iid} -> {tag}" + (f": {issues}" if issues else "")
+        )
         if not verified:
             ctx.store.add_hint(
                 content=(
@@ -2504,8 +2805,14 @@ def _auto_explore_one(ctx: _AutoCtx, step: int, intent: dict) -> None:
     print(f"[auto] step {step}.2 explore {intent['id']}")
     try:
         _run_explore_raw(
-            ctx.store, ctx.templates_dir, intent, ctx.model, ctx.timeout,
-            ctx.skip, ctx.cwd, claim=True,
+            ctx.store,
+            ctx.templates_dir,
+            intent,
+            ctx.model,
+            ctx.timeout,
+            ctx.skip,
+            ctx.cwd,
+            claim=True,
         )
         ctx.explore_count += 1
     except FGError as exc:
@@ -2524,7 +2831,8 @@ def _auto_explore_one(ctx: _AutoCtx, step: int, intent: dict) -> None:
 def _auto_explore_phase(ctx: _AutoCtx, step: int, before: tuple) -> str:
     auto_worker = _worker_id(ctx.model)
     ready = [
-        i for i in frontier(ctx.store)
+        i
+        for i in frontier(ctx.store)
         if not i.get("worker") or i.get("worker") == auto_worker
     ]
     if not ready:
@@ -2579,13 +2887,19 @@ def cmd_auto(args) -> int:
     return 0
 
 
-def _run_reason_raw(store, templates_dir, model, timeout, skip, cwd, time_budget: str = "") -> tuple[str, str]:
+def _run_reason_raw(
+    store, templates_dir, model, timeout, skip, cwd, time_budget: str = ""
+) -> tuple[str, str]:
     """Like _dispatch_reason but returns (kind, summary) instead of printing."""
     tpl = _load_template(templates_dir, "reason.md")
     prompt = render_prompt(store, tpl, time_budget=time_budget)
     envelope = run_claude(
-        prompt, model=model, timeout=timeout, skip_permissions=skip,
-        append_system=None, cwd=cwd,
+        prompt,
+        model=model,
+        timeout=timeout,
+        skip_permissions=skip,
+        append_system=None,
+        cwd=cwd,
     )
     payload = extract_json_object(envelope.get("result", ""))
     kind, data = _classify_reason_payload(payload)
@@ -2593,7 +2907,9 @@ def _run_reason_raw(store, templates_dir, model, timeout, skip, cwd, time_budget
     return kind, summary
 
 
-def _run_explore_raw(store, templates_dir, intent, model, timeout, skip, cwd, claim=False) -> dict:
+def _run_explore_raw(
+    store, templates_dir, intent, model, timeout, skip, cwd, claim=False
+) -> dict:
     if intent["to"] is not None:
         return store.get_fact(intent["to"])
     if intent.get("requires_confirmation") and not intent.get("confirmed_at"):
@@ -2606,28 +2922,47 @@ def _run_explore_raw(store, templates_dir, intent, model, timeout, skip, cwd, cl
     if claim:
         store.claim_intent(intent["id"], worker)
     envelope = run_claude(
-        prompt, model=model, timeout=timeout, skip_permissions=skip,
-        append_system=_agents_system_prompt(store), cwd=cwd,
+        prompt,
+        model=model,
+        timeout=timeout,
+        skip_permissions=skip,
+        append_system=_agents_system_prompt(store),
+        cwd=cwd,
     )
     payload = extract_json_object(envelope.get("result", ""))
     title, desc, doc, kind, fdata = _parse_explore_payload(payload)
     # atomic fact-create + conclude: no orphan if a concurrent executor won (C1/H1)
     fact, _ = store.conclude_with_new_fact(
-        intent["id"], desc, worker, title=title, doc=doc, kind=kind, data=fdata,
+        intent["id"],
+        desc,
+        worker,
+        title=title,
+        doc=doc,
+        kind=kind,
+        data=fdata,
     )
     return fact
 
 
-def _run_verify_raw(store, templates_dir, intent, model, timeout, skip, cwd) -> tuple[bool, str]:
+def _run_verify_raw(
+    store, templates_dir, intent, model, timeout, skip, cwd
+) -> tuple[bool, str]:
     fact = store.get_fact(intent["to"])
     tpl = _load_template(templates_dir, "verify.md")
-    prompt = _replace_placeholders(tpl, {
-        "intent_description": _scrub_inline(intent["description"]),
-        "result_description": _scrub_inline(fact["description"]),
-    })
+    prompt = _replace_placeholders(
+        tpl,
+        {
+            "intent_description": _scrub_inline(intent["description"]),
+            "result_description": _scrub_inline(fact["description"]),
+        },
+    )
     envelope = run_claude(
-        prompt, model=model, timeout=timeout, skip_permissions=skip,
-        append_system=None, cwd=cwd,
+        prompt,
+        model=model,
+        timeout=timeout,
+        skip_permissions=skip,
+        append_system=None,
+        cwd=cwd,
     )
     payload = extract_json_object(envelope.get("result", ""))
     verified, issues = _parse_verify_payload(payload)
@@ -2638,9 +2973,7 @@ def _graph_signature(store: Store) -> tuple:
     """Cheap snapshot to detect whether a step changed the graph."""
     g = build_graph_view(store)
     facts = tuple((f["id"], f["description"]) for f in g["facts"])
-    intents = tuple(
-        (i["id"], i["to"], i["confirmed_at"]) for i in g["intents"]
-    )
+    intents = tuple((i["id"], i["to"], i["confirmed_at"]) for i in g["intents"])
     return (g["project"]["status"], facts, intents)
 
 
@@ -2665,7 +2998,13 @@ def _load_peers(store: Store) -> dict:
         return _default_peers(store)
     try:
         data = read_json(path)
-    except (json.JSONDecodeError, UnicodeDecodeError, OSError, TypeError, ValueError) as exc:
+    except (
+        json.JSONDecodeError,
+        UnicodeDecodeError,
+        OSError,
+        TypeError,
+        ValueError,
+    ) as exc:
         raise FGError(f"cannot read peers config {path}: {exc}") from exc
     if not isinstance(data, dict):
         raise FGError(f"invalid peers config at {path}")
@@ -2675,14 +3014,18 @@ def _load_peers(store: Store) -> dict:
     if not isinstance(data["version"], int) or isinstance(data["version"], bool):
         raise FGError(f"invalid peers config at {path}: version must be an integer")
     if not isinstance(data["channel"], str) or not data["channel"].strip():
-        raise FGError(f"invalid peers config at {path}: channel must be a non-empty string")
+        raise FGError(
+            f"invalid peers config at {path}: channel must be a non-empty string"
+        )
     if not isinstance(data["peers"], dict):
         raise FGError(f"invalid peers config at {path}: peers must be an object")
     for name, peer in data["peers"].items():
         if not isinstance(name, str) or not PEER_NAME_RE.fullmatch(name):
             raise FGError(f"invalid peers config at {path}: invalid peer name {name!r}")
         if not isinstance(peer, dict) or not isinstance(peer.get("target"), str):
-            raise FGError(f"invalid peers config at {path}: peer {name!r} needs a target")
+            raise FGError(
+                f"invalid peers config at {path}: peer {name!r} needs a target"
+            )
     return data
 
 
@@ -2730,15 +3073,17 @@ def _tmux_discover() -> list[dict]:
         if len(parts) != 7:
             continue
         target, session, window, pane, command, title, active = parts
-        rows.append({
-            "target": target,
-            "session": session,
-            "window": window,
-            "pane": pane,
-            "command": command,
-            "title": title,
-            "active": active == "1",
-        })
+        rows.append(
+            {
+                "target": target,
+                "session": session,
+                "window": window,
+                "pane": pane,
+                "command": command,
+                "title": title,
+                "active": active == "1",
+            }
+        )
     return rows
 
 
@@ -2791,7 +3136,7 @@ def cmd_peers(args) -> int:
             )
         print(
             "\nAuthorize explicitly before sending, for example:\n"
-            "  sapper peers --add harley --target api-6:0.0 --sender \"Codex/api2-4\""
+            '  sapper peers --add harley --target api-6:0.0 --sender "Codex/api2-4"'
         )
         return 0
 
@@ -2801,7 +3146,9 @@ def cmd_peers(args) -> int:
     if args.add:
         name = args.add.strip()
         if not PEER_NAME_RE.match(name):
-            raise FGError("peer name must contain only letters, numbers, '.', '_' or '-'")
+            raise FGError(
+                "peer name must contain only letters, numbers, '.', '_' or '-'"
+            )
         if not args.target:
             raise FGError("--target is required with --add")
         if not _tmux_target_exists(args.target):
@@ -2815,7 +3162,9 @@ def cmd_peers(args) -> int:
             "note": args.note or None,
         }
         _save_peers(store, data)
-        print(f"authorized peer {name}: target={args.target} sender={peers[name]['sender']}")
+        print(
+            f"authorized peer {name}: target={args.target} sender={peers[name]['sender']}"
+        )
         return 0
 
     if args.remove:
@@ -2834,12 +3183,16 @@ def cmd_peers(args) -> int:
     print(f"shared log:  {data.get('channel')}")
     if not peers:
         print("(no authorized peers)")
-        print("run `sapper peers --discover` to list tmux panes, then authorize one with --add")
+        print(
+            "run `sapper peers --discover` to list tmux panes, then authorize one with --add"
+        )
         return 0
     print("authorized peers:")
     for name, peer in sorted(peers.items()):
         note = f" note={peer.get('note')!r}" if peer.get("note") else ""
-        print(f"  {name:<16} target={peer.get('target')} sender={peer.get('sender')}{note}")
+        print(
+            f"  {name:<16} target={peer.get('target')} sender={peer.get('sender')}{note}"
+        )
     return 0
 
 
@@ -2870,11 +3223,18 @@ def cmd_send(args) -> int:
         message = body
     else:
         stamp = time.strftime("%Y-%m-%d %H:%M")
-        sender = args.sender or peer.get("sender") or os.environ.get("FGC_SENDER") or "sapper-agent"
+        sender = (
+            args.sender
+            or peer.get("sender")
+            or os.environ.get("FGC_SENDER")
+            or "sapper-agent"
+        )
         message = f"[{stamp}][{sender}] {body}"
 
     if not args.no_log:
-        channel = Path(args.channel or data.get("channel") or (store.root / AI_CHANNEL_NAME))
+        channel = Path(
+            args.channel or data.get("channel") or (store.root / AI_CHANNEL_NAME)
+        )
         channel.parent.mkdir(parents=True, exist_ok=True)
         with open(channel, "a", encoding="utf-8") as fh:
             fh.write(message + "\n")
@@ -2911,7 +3271,9 @@ def cmd_capture(args) -> int:
     print(text)
 
     if args.log:
-        channel = Path(args.channel or data.get("channel") or (store.root / AI_CHANNEL_NAME))
+        channel = Path(
+            args.channel or data.get("channel") or (store.root / AI_CHANNEL_NAME)
+        )
         channel.parent.mkdir(parents=True, exist_ok=True)
         stamp = time.strftime("%Y-%m-%d %H:%M")
         with open(channel, "a", encoding="utf-8") as fh:
@@ -2923,7 +3285,9 @@ def cmd_capture(args) -> int:
     return 0
 
 
-_AGENTS_MARKER = "<!-- generated by sapper; edit or remove this marker to keep this file -->"
+_AGENTS_MARKER = (
+    "<!-- generated by sapper; edit or remove this marker to keep this file -->"
+)
 
 _AGENTS_SPEC = """\
 {marker}
@@ -2986,7 +3350,9 @@ def build_parser() -> argparse.ArgumentParser:
         prog="sapper",
         description="fact-graph working memory for agentic work",
     )
-    p.add_argument("--store", default=DEFAULT_STORE, help=f"graph dir (default: {DEFAULT_STORE})")
+    p.add_argument(
+        "--store", default=DEFAULT_STORE, help=f"graph dir (default: {DEFAULT_STORE})"
+    )
     p.add_argument("--version", action="version", version=f"sapper {__version__}")
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -3014,41 +3380,86 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("pick", help="pick the next intent to work (prints id)")
     sp.add_argument("--claim", action="store_true", help="claim it for this agent")
-    sp.add_argument("--any", action="store_true",
-                    help="also consider open intents that aren't ready (e.g. unconfirmed)")
+    sp.add_argument(
+        "--any",
+        action="store_true",
+        help="also consider open intents that aren't ready (e.g. unconfirmed)",
+    )
     sp.add_argument("--worker", default=None)
     sp.set_defaults(func=cmd_pick)
 
     sp = sub.add_parser(
-        "fact", help="add a confirmed fact (optionally typed: host/service/cred/vuln/loot/flag)"
+        "fact",
+        help="add a confirmed fact (optionally typed: host/service/cred/vuln/loot/flag)",
     )
-    sp.add_argument("description", help="summary (one sentence) - the gist of this node")
-    sp.add_argument("--title", "-t", default=None,
-                    help="short human title shown in the graph view (中文标题)")
-    sp.add_argument("--kind", "-k", default=None, choices=FACT_KINDS,
-                    help="typed fact kind for offensive work")
-    sp.add_argument("--data", "-d", default=None, action="append", metavar="KEY=VALUE",
-                    help="structured data field (repeatable), e.g. -d host=10.0.0.1 -d port=80")
-    sp.add_argument("--doc", default=None,
-                    help="detailed document body (markdown). For long text use --doc-file")
-    sp.add_argument("--doc-file", default=None,
-                    help="read the detailed document from this file path")
+    sp.add_argument(
+        "description", help="summary (one sentence) - the gist of this node"
+    )
+    sp.add_argument(
+        "--title",
+        "-t",
+        default=None,
+        help="short human title shown in the graph view (中文标题)",
+    )
+    sp.add_argument(
+        "--kind",
+        "-k",
+        default=None,
+        choices=FACT_KINDS,
+        help="typed fact kind for offensive work",
+    )
+    sp.add_argument(
+        "--data",
+        "-d",
+        default=None,
+        action="append",
+        metavar="KEY=VALUE",
+        help="structured data field (repeatable), e.g. -d host=10.0.0.1 -d port=80",
+    )
+    sp.add_argument(
+        "--doc",
+        default=None,
+        help="detailed document body (markdown). For long text use --doc-file",
+    )
+    sp.add_argument(
+        "--doc-file",
+        default=None,
+        help="read the detailed document from this file path",
+    )
     sp.add_argument("--creator", default="user")
-    sp.add_argument("--from-intent", default=None, help="intent that produced this fact")
+    sp.add_argument(
+        "--from-intent", default=None, help="intent that produced this fact"
+    )
     sp.add_argument("--json", action="store_true")
     sp.set_defaults(func=cmd_fact)
 
     sp = sub.add_parser("intent", help="add an intent (a unit of work)")
-    sp.add_argument("--from", dest="from_", required=True, help="comma/space separated fact ids")
-    sp.add_argument("description", help="summary (one sentence) - what this intent will do")
-    sp.add_argument("--title", "-t", default=None,
-                    help="short human title shown in the graph view (中文标题)")
-    sp.add_argument("--doc", default=None,
-                    help="detailed document body (markdown). For long text use --doc-file")
-    sp.add_argument("--doc-file", default=None,
-                    help="read the detailed document from this file path")
+    sp.add_argument(
+        "--from", dest="from_", required=True, help="comma/space separated fact ids"
+    )
+    sp.add_argument(
+        "description", help="summary (one sentence) - what this intent will do"
+    )
+    sp.add_argument(
+        "--title",
+        "-t",
+        default=None,
+        help="short human title shown in the graph view (中文标题)",
+    )
+    sp.add_argument(
+        "--doc",
+        default=None,
+        help="detailed document body (markdown). For long text use --doc-file",
+    )
+    sp.add_argument(
+        "--doc-file",
+        default=None,
+        help="read the detailed document from this file path",
+    )
     sp.add_argument("--creator", default="user")
-    sp.add_argument("--confirm", action="store_true", help="requires human confirmation")
+    sp.add_argument(
+        "--confirm", action="store_true", help="requires human confirmation"
+    )
     sp.add_argument("--json", action="store_true")
     sp.set_defaults(func=cmd_intent)
 
@@ -3068,13 +3479,24 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     sp.add_argument("--discover", action="store_true", help="list all tmux panes")
-    sp.add_argument("--add", metavar="NAME", default=None,
-                    help="authorize a peer name after user approval")
-    sp.add_argument("--remove", metavar="NAME", default=None, help="remove an authorized peer")
-    sp.add_argument("--target", default=None, help="tmux target for --add, e.g. api-6:0.0")
+    sp.add_argument(
+        "--add",
+        metavar="NAME",
+        default=None,
+        help="authorize a peer name after user approval",
+    )
+    sp.add_argument(
+        "--remove", metavar="NAME", default=None, help="remove an authorized peer"
+    )
+    sp.add_argument(
+        "--target", default=None, help="tmux target for --add, e.g. api-6:0.0"
+    )
     sp.add_argument("--sender", default=None, help="sender label used by sapper send")
-    sp.add_argument("--channel", default=None,
-                    help="shared append-only log path (default: .sapper/ai-channel.txt)")
+    sp.add_argument(
+        "--channel",
+        default=None,
+        help="shared append-only log path (default: .sapper/ai-channel.txt)",
+    )
     sp.add_argument("--note", default=None, help="optional human note about the peer")
     sp.add_argument("--json", action="store_true")
     sp.set_defaults(func=cmd_peers)
@@ -3090,10 +3512,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sp.add_argument("peer", help="authorized peer name")
     sp.add_argument("message", nargs="*", help="message text; stdin is used if omitted")
-    sp.add_argument("--sender", default=None, help="override sender label for this message")
+    sp.add_argument(
+        "--sender", default=None, help="override sender label for this message"
+    )
     sp.add_argument("--channel", default=None, help="override shared log path")
-    sp.add_argument("--no-log", action="store_true", help="do not append to the shared log")
-    sp.add_argument("--raw", action="store_true", help="send body without timestamp/sender prefix")
+    sp.add_argument(
+        "--no-log", action="store_true", help="do not append to the shared log"
+    )
+    sp.add_argument(
+        "--raw", action="store_true", help="send body without timestamp/sender prefix"
+    )
     sp.set_defaults(func=cmd_send)
 
     sp = sub.add_parser(
@@ -3106,12 +3534,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     sp.add_argument("peer", help="authorized peer name")
-    sp.add_argument("--lines", type=int, default=120,
-                    help="recent pane lines to capture (1-2000)")
-    sp.add_argument("--channel", default=None,
-                    help="override shared log path when --log is used")
-    sp.add_argument("--log", action="store_true",
-                    help="append captured output to the shared log")
+    sp.add_argument(
+        "--lines", type=int, default=120, help="recent pane lines to capture (1-2000)"
+    )
+    sp.add_argument(
+        "--channel", default=None, help="override shared log path when --log is used"
+    )
+    sp.add_argument(
+        "--log", action="store_true", help="append captured output to the shared log"
+    )
     sp.set_defaults(func=cmd_capture)
 
     sp = sub.add_parser("show", help="show project | fact <id> | intent <id>")
@@ -3148,10 +3579,19 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     sp.add_argument("query", help="free-text task gist (中文 ok)")
-    sp.add_argument("--limit", "-n", type=int, default=5,
-                    help="max results (default: 5); must be >= 1")
-    sp.add_argument("--kind", choices=["fact", "intent", "any"], default="any",
-                    help="restrict to one kind (default: any)")
+    sp.add_argument(
+        "--limit",
+        "-n",
+        type=int,
+        default=5,
+        help="max results (default: 5); must be >= 1",
+    )
+    sp.add_argument(
+        "--kind",
+        choices=["fact", "intent", "any"],
+        default="any",
+        help="restrict to one kind (default: any)",
+    )
     sp.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     sp.set_defaults(func=cmd_recall)
 
@@ -3168,21 +3608,44 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("done", help="conclude an intent with a produced fact")
     sp.add_argument("id")
     sp.add_argument("--fact", required=True, help="the confirmed result text (summary)")
-    sp.add_argument("--title", "-t", default=None,
-                    help="short human title shown in the graph view (中文标题)")
-    sp.add_argument("--kind", "-k", default=None, choices=FACT_KINDS,
-                    help="typed fact kind for offensive work")
-    sp.add_argument("--data", "-d", default=None, action="append", metavar="KEY=VALUE",
-                    help="structured data field (repeatable), e.g. -d cve=CVE-2021-41773")
-    sp.add_argument("--doc", default=None,
-                    help="detailed document body (markdown). For long text use --doc-file")
-    sp.add_argument("--doc-file", default=None,
-                    help="read the detailed document from this file path")
+    sp.add_argument(
+        "--title",
+        "-t",
+        default=None,
+        help="short human title shown in the graph view (中文标题)",
+    )
+    sp.add_argument(
+        "--kind",
+        "-k",
+        default=None,
+        choices=FACT_KINDS,
+        help="typed fact kind for offensive work",
+    )
+    sp.add_argument(
+        "--data",
+        "-d",
+        default=None,
+        action="append",
+        metavar="KEY=VALUE",
+        help="structured data field (repeatable), e.g. -d cve=CVE-2021-41773",
+    )
+    sp.add_argument(
+        "--doc",
+        default=None,
+        help="detailed document body (markdown). For long text use --doc-file",
+    )
+    sp.add_argument(
+        "--doc-file",
+        default=None,
+        help="read the detailed document from this file path",
+    )
     sp.add_argument("--worker", default="agent")
     sp.set_defaults(func=cmd_done)
 
     sp = sub.add_parser("complete", help="mark the project goal satisfied")
-    sp.add_argument("--from", dest="from_", required=True, help="facts that justify completion")
+    sp.add_argument(
+        "--from", dest="from_", required=True, help="facts that justify completion"
+    )
     sp.add_argument("--note", default=None)
     sp.add_argument("--worker", default="reason")
     sp.set_defaults(func=cmd_complete)
@@ -3191,17 +3654,37 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("id")
     sp.set_defaults(func=cmd_confirm)
 
-    sp = sub.add_parser("dispatch", help="run a commander/executor step via the claude CLI")
+    sp = sub.add_parser(
+        "dispatch", help="run a commander/executor step via the claude CLI"
+    )
     sp.add_argument("target", help="'reason' | 'verify' | <intent-id>")
     sp.add_argument("--model", default=os.environ.get("SAPPER_MODEL", "sonnet"))
-    sp.add_argument("--timeout", type=int, default=int(os.environ.get("SAPPER_TIMEOUT", "600")))
-    sp.add_argument("--templates", default=None, help="templates dir (default: <store>/../templates or SKILL dir)")
-    sp.add_argument("--skip-permissions", action="store_true",
-                    help="pass --dangerously-skip-permissions to the executor")
-    sp.add_argument("--dry-run", action="store_true", help="print the rendered prompt and exit")
-    sp.add_argument("--claim", action="store_true", help="(explore) claim the intent first")
+    sp.add_argument(
+        "--timeout", type=int, default=int(os.environ.get("SAPPER_TIMEOUT", "600"))
+    )
+    sp.add_argument(
+        "--templates",
+        default=None,
+        help="templates dir (default: <store>/../templates or SKILL dir)",
+    )
+    sp.add_argument(
+        "--skip-permissions",
+        action="store_true",
+        help="pass --dangerously-skip-permissions to the executor",
+    )
+    sp.add_argument(
+        "--dry-run", action="store_true", help="print the rendered prompt and exit"
+    )
+    sp.add_argument(
+        "--claim", action="store_true", help="(explore) claim the intent first"
+    )
     sp.add_argument("--intent", default=None, help="(verify) intent id to verify")
-    sp.add_argument("--max-options", type=int, default=4, help="(brainstorm) number of options to generate")
+    sp.add_argument(
+        "--max-options",
+        type=int,
+        default=4,
+        help="(brainstorm) number of options to generate",
+    )
     sp.set_defaults(func=cmd_dispatch)
 
     sp = sub.add_parser(
@@ -3227,7 +3710,9 @@ def build_parser() -> argparse.ArgumentParser:
             "AGENTS.md. Nothing under ~ is touched."
         ),
     )
-    sp.add_argument("--goal", default=None, help="one-line goal (required if no .sapper/ yet)")
+    sp.add_argument(
+        "--goal", default=None, help="one-line goal (required if no .sapper/ yet)"
+    )
     sp.add_argument("--origin", default="", help="where this task came from")
     sp.add_argument("--agents", action="store_true", help="also write AGENTS.md")
     sp.add_argument("--force", action="store_true")
@@ -3237,7 +3722,9 @@ def build_parser() -> argparse.ArgumentParser:
         "teardown",
         help="remove hooks + AGENTS.md from THIS project (keeps .sapper/ unless --purge)",
     )
-    sp.add_argument("--purge", action="store_true", help="also delete the .sapper/ graph data")
+    sp.add_argument(
+        "--purge", action="store_true", help="also delete the .sapper/ graph data"
+    )
     sp.set_defaults(func=cmd_teardown)
 
     sp = sub.add_parser(
@@ -3251,20 +3738,28 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     sp.add_argument("--out", default=None, help="output html path (static mode)")
-    sp.add_argument("--serve", action="store_true", help="serve a live auto-refreshing page")
+    sp.add_argument(
+        "--serve", action="store_true", help="serve a live auto-refreshing page"
+    )
     sp.add_argument("--host", default="127.0.0.1")
     sp.add_argument("--port", type=int, default=8765)
-    sp.add_argument("--print", action="store_true", help="print the static html to stdout")
+    sp.add_argument(
+        "--print", action="store_true", help="print the static html to stdout"
+    )
     sp.set_defaults(func=cmd_view)
-
 
     sp = sub.add_parser(
         "flag", help="record a captured flag (dedupe; optionally submit via arena)"
     )
     sp.add_argument("value", help="the flag string, e.g. flag{...}")
-    sp.add_argument("--challenge", "-c", default=None, help="challenge id on the platform")
-    sp.add_argument("--submit", action="store_true",
-                    help="also submit via the arena API (requires .sapper/arena.json)")
+    sp.add_argument(
+        "--challenge", "-c", default=None, help="challenge id on the platform"
+    )
+    sp.add_argument(
+        "--submit",
+        action="store_true",
+        help="also submit via the arena API (requires .sapper/arena.json)",
+    )
     sp.add_argument("--title", "-t", default=None)
     sp.add_argument("--creator", default="user")
     sp.set_defaults(func=cmd_flag)
@@ -3273,7 +3768,8 @@ def build_parser() -> argparse.ArgumentParser:
         "arena", help="competition platform bridge (TSecBench-style API)"
     )
     sp.add_argument(
-        "action", choices=["init", "challenges", "start", "stop", "submit", "hint"],
+        "action",
+        choices=["init", "challenges", "start", "stop", "submit", "hint"],
         help="init: write .sapper/arena.json template; others call the platform API",
     )
     sp.add_argument("challenge_id", nargs="?", default=None, help="challenge id")
@@ -3284,25 +3780,43 @@ def build_parser() -> argparse.ArgumentParser:
         "kb", help="shared offline knowledge base (techniques / CVEs / writeups)"
     )
     sp.add_argument(
-        "action", choices=["add", "search", "show", "list", "import", "root"],
+        "action",
+        choices=["add", "search", "show", "list", "import", "root"],
         help="add: new entry; search: keyword/tag lookup; show: full entry; "
-             "list: browse; import: pull markdown files in; root: print kb location",
+        "list: browse; import: pull markdown files in; root: print kb location",
     )
     sp.add_argument(
-        "target", nargs="?", default=None,
+        "target",
+        nargs="?",
+        default=None,
         help="title (add) | kb id (show) | search query (search) | path (import)",
     )
     sp.add_argument("--description", "-d", default=None, help="one-line summary")
     sp.add_argument("--detail", default=None, help="markdown body")
     sp.add_argument("--detail-file", default=None, help="read markdown body from file")
-    sp.add_argument("--tag", "-t", default=None, action="append",
-                    help="tag (repeatable), e.g. -t web -t sqli")
-    sp.add_argument("--command", "-c", default=None, action="append",
-                    help="example command (repeatable)")
+    sp.add_argument(
+        "--tag",
+        "-t",
+        default=None,
+        action="append",
+        help="tag (repeatable), e.g. -t web -t sqli",
+    )
+    sp.add_argument(
+        "--command",
+        "-c",
+        default=None,
+        action="append",
+        help="example command (repeatable)",
+    )
     sp.add_argument("--source", default=None, help="where this came from (URL/book)")
-    sp.add_argument("--path", default=None, help="file or dir of .md files (for import)")
-    sp.add_argument("--root", default=None,
-                    help="kb root dir (default SAPPER_KB_ROOT or the repo's kb/)")
+    sp.add_argument(
+        "--path", default=None, help="file or dir of .md files (for import)"
+    )
+    sp.add_argument(
+        "--root",
+        default=None,
+        help="kb root dir (default SAPPER_KB_ROOT or the repo's kb/)",
+    )
     sp.add_argument("--limit", "-n", type=int, default=5)
     sp.set_defaults(func=cmd_kb)
 
@@ -3313,15 +3827,31 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--root", default="runs", help="per-challenge graph root")
     sp.add_argument("--minutes", type=int, default=None, help="global budget (minutes)")
     sp.add_argument("--deadline", default=None, help="global stop time, ISO 8601 local")
-    sp.add_argument("--minutes-per-challenge", type=int, default=25,
-                    help="auto budget per challenge per round")
+    sp.add_argument(
+        "--minutes-per-challenge",
+        type=int,
+        default=25,
+        help="auto budget per challenge per round",
+    )
     sp.add_argument("--max-steps", type=int, default=10)
-    sp.add_argument("--round-gap-seconds", type=int, default=20,
-                    help="pause between rounds so a fast-failing loop cannot hammer the platform")
-    sp.add_argument("--parallel", type=int, default=1,
-                    help="run this many per-challenge workers concurrently (hosted night rate: high concurrency is free; platform active-container cap is honored automatically)")
-    sp.add_argument("--poll-seconds", type=int, default=5,
-                    help="worker reaping poll interval in parallel mode")
+    sp.add_argument(
+        "--round-gap-seconds",
+        type=int,
+        default=20,
+        help="pause between rounds so a fast-failing loop cannot hammer the platform",
+    )
+    sp.add_argument(
+        "--parallel",
+        type=int,
+        default=1,
+        help="run this many per-challenge workers concurrently (hosted night rate: high concurrency is free; platform active-container cap is honored automatically)",
+    )
+    sp.add_argument(
+        "--poll-seconds",
+        type=int,
+        default=5,
+        help="worker reaping poll interval in parallel mode",
+    )
     sp.add_argument("--model", default=os.environ.get("SAPPER_MODEL", "sonnet"))
     sp.add_argument("--templates", default=None)
     sp.add_argument("--skip-permissions", action="store_true")
@@ -3332,20 +3862,42 @@ def build_parser() -> argparse.ArgumentParser:
         "command",
         help="field commander: LLM allocates the next work slice across challenge graphs",
     )
-    sp.add_argument("--root", default="runs", help="directory holding one subdir per challenge")
-    sp.add_argument("--minutes", type=int, default=None,
-                    help="global budget in minutes (the match slot clock)")
-    sp.add_argument("--deadline", default=None,
-                    help="global stop time, ISO 8601 local (e.g. 2026-10-17T13:00:00)")
-    sp.add_argument("--minutes-default", type=int, default=20,
-                    help="slice size when the model gives none / fallback")
+    sp.add_argument(
+        "--root", default="runs", help="directory holding one subdir per challenge"
+    )
+    sp.add_argument(
+        "--minutes",
+        type=int,
+        default=None,
+        help="global budget in minutes (the match slot clock)",
+    )
+    sp.add_argument(
+        "--deadline",
+        default=None,
+        help="global stop time, ISO 8601 local (e.g. 2026-10-17T13:00:00)",
+    )
+    sp.add_argument(
+        "--minutes-default",
+        type=int,
+        default=20,
+        help="slice size when the model gives none / fallback",
+    )
     sp.add_argument("--minutes-max", type=int, default=40, help="cap on a single slice")
-    sp.add_argument("--fleet-file", default=None,
-                    help="fleet.json to read the tmux session name from (hire/fire)")
-    sp.add_argument("--poll-seconds", type=int, default=30,
-                    help="settle time after hire/fire before the next decision")
+    sp.add_argument(
+        "--fleet-file",
+        default=None,
+        help="fleet.json to read the tmux session name from (hire/fire)",
+    )
+    sp.add_argument(
+        "--poll-seconds",
+        type=int,
+        default=30,
+        help="settle time after hire/fire before the next decision",
+    )
     sp.add_argument("--model", default=os.environ.get("SAPPER_MODEL", "sonnet"))
-    sp.add_argument("--timeout", type=int, default=int(os.environ.get("SAPPER_TIMEOUT", "600")))
+    sp.add_argument(
+        "--timeout", type=int, default=int(os.environ.get("SAPPER_TIMEOUT", "600"))
+    )
     sp.add_argument("--templates", default=None)
     sp.add_argument("--skip-permissions", action="store_true")
     sp.add_argument("--verify", action="store_true")
@@ -3355,25 +3907,46 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser(
         "fleet", help="launch/stop the whole formation in tmux panes (match-day)"
     )
-    sp.add_argument("action", choices=["init", "up", "down", "status", "hire", "fire", "workers"])
+    sp.add_argument(
+        "action", choices=["init", "up", "down", "status", "hire", "fire", "workers"]
+    )
     sp.add_argument("--file", default=FLEET_FILE, help="fleet config path")
     sp.add_argument("--target", default=None, help="challenge name (for hire/fire)")
-    sp.add_argument("--minutes", type=int, default=None, help="worker budget (for hire)")
-    sp.add_argument("--max-steps", type=int, default=None, help="worker max steps (for hire)")
-    sp.add_argument("--extra-args", default=None, help="extra args passed to the hired auto run")
+    sp.add_argument(
+        "--minutes", type=int, default=None, help="worker budget (for hire)"
+    )
+    sp.add_argument(
+        "--max-steps", type=int, default=None, help="worker max steps (for hire)"
+    )
+    sp.add_argument(
+        "--extra-args", default=None, help="extra args passed to the hired auto run"
+    )
     sp.set_defaults(func=cmd_fleet)
 
     sp = sub.add_parser(
         "sweep",
         help="round-robin `auto` across per-challenge graphs (<root>/<name>/.sapper)",
     )
-    sp.add_argument("--root", default="runs", help="directory holding one subdir per challenge")
-    sp.add_argument("--minutes", type=int, default=None,
-                    help="global budget in minutes (the match slot clock)")
-    sp.add_argument("--deadline", default=None,
-                    help="global stop time, ISO 8601 local (e.g. 2026-10-17T13:00:00)")
-    sp.add_argument("--minutes-per", type=int, default=20,
-                    help="minutes of work per challenge per round")
+    sp.add_argument(
+        "--root", default="runs", help="directory holding one subdir per challenge"
+    )
+    sp.add_argument(
+        "--minutes",
+        type=int,
+        default=None,
+        help="global budget in minutes (the match slot clock)",
+    )
+    sp.add_argument(
+        "--deadline",
+        default=None,
+        help="global stop time, ISO 8601 local (e.g. 2026-10-17T13:00:00)",
+    )
+    sp.add_argument(
+        "--minutes-per",
+        type=int,
+        default=20,
+        help="minutes of work per challenge per round",
+    )
     sp.add_argument("--model", default=os.environ.get("SAPPER_MODEL", "sonnet"))
     sp.add_argument("--templates", default=None)
     sp.add_argument("--skip-permissions", action="store_true")
@@ -3382,20 +3955,32 @@ def build_parser() -> argparse.ArgumentParser:
     sp.set_defaults(func=cmd_sweep)
 
     sp = sub.add_parser(
-        "auto", help="drive the whole graph forward: reason -> explore -> verify -> repeat"
+        "auto",
+        help="drive the whole graph forward: reason -> explore -> verify -> repeat",
     )
     sp.add_argument("--model", default=os.environ.get("SAPPER_MODEL", "sonnet"))
-    sp.add_argument("--timeout", type=int, default=int(os.environ.get("SAPPER_TIMEOUT", "600")))
+    sp.add_argument(
+        "--timeout", type=int, default=int(os.environ.get("SAPPER_TIMEOUT", "600"))
+    )
     sp.add_argument("--templates", default=None)
     sp.add_argument("--skip-permissions", action="store_true")
     sp.add_argument("--dry-run", action="store_true", help="reason only, no explore")
     sp.add_argument("--verify", action="store_true", help="verify each explore result")
     sp.add_argument("--max-steps", type=int, default=8, help="max reason iterations")
-    sp.add_argument("--max-explore", type=int, default=6, help="cap on explore dispatches")
-    sp.add_argument("--minutes", type=int, default=None,
-                    help="stop after this many minutes (match slot budget)")
-    sp.add_argument("--deadline", default=None,
-                    help="stop at this ISO 8601 local time (e.g. 2026-10-17T13:00:00)")
+    sp.add_argument(
+        "--max-explore", type=int, default=6, help="cap on explore dispatches"
+    )
+    sp.add_argument(
+        "--minutes",
+        type=int,
+        default=None,
+        help="stop after this many minutes (match slot budget)",
+    )
+    sp.add_argument(
+        "--deadline",
+        default=None,
+        help="stop at this ISO 8601 local time (e.g. 2026-10-17T13:00:00)",
+    )
     sp.set_defaults(func=cmd_auto)
 
     return p
@@ -3416,7 +4001,10 @@ def _resolve_templates_dir(args) -> Path:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     # patch templates default post-hoc (depends on store)
-    if getattr(args, "templates", None) is None and getattr(args, "func", None) in (cmd_dispatch, cmd_auto):
+    if getattr(args, "templates", None) is None and getattr(args, "func", None) in (
+        cmd_dispatch,
+        cmd_auto,
+    ):
         args.templates = str(_resolve_templates_dir(args))
     try:
         return args.func(args)

@@ -25,8 +25,14 @@ from .model import (
 from .schema import _node_schema_errors
 
 __all__ = [
-    "LOCK_NAME", "_UNSET", "Store", "read_json", "atomic_write_json",
-    "_validate_lookup_id", "_read_node", "_check_conclusion_permission",
+    "LOCK_NAME",
+    "_UNSET",
+    "Store",
+    "read_json",
+    "atomic_write_json",
+    "_validate_lookup_id",
+    "_read_node",
+    "_check_conclusion_permission",
     "_read_node_files",
 ]
 
@@ -110,8 +116,16 @@ class Store:
     def load_project(self) -> dict:
         try:
             project = read_json(self.project_file)
-        except (json.JSONDecodeError, UnicodeDecodeError, OSError, TypeError, ValueError) as exc:
-            raise FGError(f"cannot read project metadata {self.project_file}: {exc}") from exc
+        except (
+            json.JSONDecodeError,
+            UnicodeDecodeError,
+            OSError,
+            TypeError,
+            ValueError,
+        ) as exc:
+            raise FGError(
+                f"cannot read project metadata {self.project_file}: {exc}"
+            ) from exc
         if not isinstance(project, dict):
             raise FGError("invalid project.json: expected a JSON object")
         for key in ("id", "origin", "goal", "status"):
@@ -128,7 +142,9 @@ class Store:
         for kind in ("fact", "intent", "hint", "run"):
             value = counters.get(kind, 0)
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-                raise FGError(f"invalid project.json: counter {kind!r} must be a non-negative integer")
+                raise FGError(
+                    f"invalid project.json: counter {kind!r} must be a non-negative integer"
+                )
             counters.setdefault(kind, value)
         return project
 
@@ -164,9 +180,16 @@ class Store:
             raise FGError(f"fact {fid} not found")
         return _read_node(p, "fact")
 
-    def add_fact(self, description: str, creator: str, source_intent: str | None = None,
-                 title: str | None = None, doc: str | None = None,
-                 kind: str | None = None, data: dict | None = None) -> dict:
+    def add_fact(
+        self,
+        description: str,
+        creator: str,
+        source_intent: str | None = None,
+        title: str | None = None,
+        doc: str | None = None,
+        kind: str | None = None,
+        data: dict | None = None,
+    ) -> dict:
         if not isinstance(description, str) or not description.strip():
             raise FGError("fact description cannot be empty")
         if not isinstance(creator, str) or not creator.strip():
@@ -240,7 +263,9 @@ class Store:
             raise FGError("intent description cannot be empty")
         if not isinstance(creator, str) or not creator.strip():
             raise FGError("intent creator cannot be empty")
-        if not isinstance(from_ids, list) or any(not isinstance(fid, str) for fid in from_ids):
+        if not isinstance(from_ids, list) or any(
+            not isinstance(fid, str) for fid in from_ids
+        ):
             raise FGError("intent `from` ids must be a list of strings")
         # A hyper-edge only needs each dependency once; de-duplicate model or
         # API input before validation and persistence.
@@ -278,10 +303,12 @@ class Store:
             if node_id == GOAL_ID:
                 candidates.append(("fact", self.facts_dir / f"{node_id}.json"))
             else:
-                candidates.extend([
-                    ("fact", self.facts_dir / f"{node_id}.json"),
-                    ("intent", self.intents_dir / f"{node_id}.json"),
-                ])
+                candidates.extend(
+                    [
+                        ("fact", self.facts_dir / f"{node_id}.json"),
+                        ("intent", self.intents_dir / f"{node_id}.json"),
+                    ]
+                )
             for kind, path in candidates:
                 if path.exists():
                     node = _read_node(path, kind)
@@ -290,7 +317,9 @@ class Store:
                             f"{node_id} changed while the editor was open; "
                             "re-read it and try again"
                         )
-                    node["doc"] = doc.strip() if isinstance(doc, str) and doc.strip() else None
+                    node["doc"] = (
+                        doc.strip() if isinstance(doc, str) and doc.strip() else None
+                    )
                     atomic_write_json(path, node)
                     return node
         raise FGError(f"no fact or intent named {node_id}")
@@ -314,9 +343,7 @@ class Store:
         with self.locked():
             intent = self.get_intent(iid)
             if intent["to"] is not None:
-                raise FGError(
-                    f"intent {iid} already concluded (to={intent['to']})"
-                )
+                raise FGError(f"intent {iid} already concluded (to={intent['to']})")
             _check_conclusion_permission(intent, worker, allow_unconfirmed)
             if to_fact_id != GOAL_ID:
                 _validate_lookup_id(to_fact_id, "fact")
@@ -325,7 +352,9 @@ class Store:
                 if project.get("status") == "completed":
                     raise FGError("project is already completed")
                 if project.get("status") != "active":
-                    raise FGError(f"project status {project.get('status')!r} cannot be completed")
+                    raise FGError(
+                        f"project status {project.get('status')!r} cannot be completed"
+                    )
                 if any(
                     other.get("id") != iid and other.get("to") == GOAL_ID
                     for other in self.list_intents()
@@ -341,7 +370,9 @@ class Store:
                     )
                 if source_intent is None:
                     target_fact["source_intent"] = iid
-                    atomic_write_json(self.facts_dir / f"{to_fact_id}.json", target_fact)
+                    atomic_write_json(
+                        self.facts_dir / f"{to_fact_id}.json", target_fact
+                    )
             intent["to"] = to_fact_id
             intent["status"] = "complete" if to_fact_id == GOAL_ID else "done"
             intent["concluded_at"] = now_iso()
@@ -365,7 +396,9 @@ class Store:
             if project.get("status") == "completed":
                 raise FGError("project is already completed")
             if project.get("status") != "active":
-                raise FGError(f"project status {project.get('status')!r} cannot be completed")
+                raise FGError(
+                    f"project status {project.get('status')!r} cannot be completed"
+                )
             existing_goal_edge = any(
                 i.get("to") == GOAL_ID for i in self.list_intents()
             )
@@ -395,8 +428,14 @@ class Store:
             return intent
 
     def conclude_with_new_fact(
-        self, iid: str, description: str, worker: str, title: str | None = None,
-        doc: str | None = None, kind: str | None = None, data: dict | None = None,
+        self,
+        iid: str,
+        description: str,
+        worker: str,
+        title: str | None = None,
+        doc: str | None = None,
+        kind: str | None = None,
+        data: dict | None = None,
         *,
         allow_unconfirmed: bool = False,
     ) -> tuple[dict, dict]:
@@ -414,7 +453,9 @@ class Store:
                     f"intent {iid} already concluded (to={intent['to']}); "
                     f"dropping duplicate executor result"
                 )
-            _check_conclusion_permission(intent, worker, allow_unconfirmed=allow_unconfirmed)
+            _check_conclusion_permission(
+                intent, worker, allow_unconfirmed=allow_unconfirmed
+            )
             if not isinstance(description, str) or not description.strip():
                 raise FGError("fact description cannot be empty")
             fid = self._next_id("fact", "f")
@@ -443,7 +484,9 @@ class Store:
             if intent["to"] is not None:
                 raise FGError(f"intent {iid} already concluded")
             if intent.get("requires_confirmation") and not intent.get("confirmed_at"):
-                raise FGError(f"intent {iid} requires confirmation before it can be claimed")
+                raise FGError(
+                    f"intent {iid} requires confirmation before it can be claimed"
+                )
             owner = intent.get("worker")
             if owner and owner != worker:
                 raise FGError(f"intent {iid} claimed by {owner}")
@@ -545,7 +588,13 @@ def _read_node(path: Path, kind: str) -> dict:
     """Read one node and turn corruption into a concise CLI error."""
     try:
         data = read_json(path)
-    except (json.JSONDecodeError, UnicodeDecodeError, OSError, TypeError, ValueError) as exc:
+    except (
+        json.JSONDecodeError,
+        UnicodeDecodeError,
+        OSError,
+        TypeError,
+        ValueError,
+    ) as exc:
         raise FGError(f"cannot read {kind} {path.name}: {exc}") from exc
     if not isinstance(data, dict):
         raise FGError(f"invalid {kind} {path.name}: expected a JSON object")
@@ -560,9 +609,15 @@ def _read_node(path: Path, kind: str) -> dict:
 
 
 def _check_conclusion_permission(
-    intent: dict, worker: str | None, allow_unconfirmed: bool,
+    intent: dict,
+    worker: str | None,
+    allow_unconfirmed: bool,
 ) -> None:
-    if intent.get("requires_confirmation") and not intent.get("confirmed_at") and not allow_unconfirmed:
+    if (
+        intent.get("requires_confirmation")
+        and not intent.get("confirmed_at")
+        and not allow_unconfirmed
+    ):
         raise FGError(
             f"intent {intent['id']} requires confirmation; run `sapper confirm {intent['id']}` first"
         )
@@ -627,5 +682,3 @@ def atomic_write_json(path: Path, data: dict) -> None:
         os.replace(tmp, path)
     finally:
         tmp.unlink(missing_ok=True)
-
-

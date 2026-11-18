@@ -12,10 +12,18 @@ from .graph import build_graph_view, frontier, is_open, recall
 from .storage import Store
 
 __all__ = [
-    "render_status", "render_recall", "render_history_block",
-    "render_graph_text", "render_prompt", "render_intent_prompt",
-    "_replace_placeholders", "_intent_brief", "_hint_brief", "_to_yaml_like",
-    "_scrub_inline", "_prompt_inline",
+    "render_status",
+    "render_recall",
+    "render_history_block",
+    "render_graph_text",
+    "render_prompt",
+    "render_intent_prompt",
+    "_replace_placeholders",
+    "_intent_brief",
+    "_hint_brief",
+    "_to_yaml_like",
+    "_scrub_inline",
+    "_prompt_inline",
 ]
 
 
@@ -57,7 +65,9 @@ def render_status(store: Store) -> str:
         if k:
             typed[k] = typed.get(k, 0) + 1
     if typed:
-        summary = ", ".join(f"{n} {k}s" if k != "flag" else f"{n} flag(s)" for k, n in typed.items())
+        summary = ", ".join(
+            f"{n} {k}s" if k != "flag" else f"{n} flag(s)" for k, n in typed.items()
+        )
         lines.append(f"kinds:  {summary}")
     flags = [f for f in g["facts"] if f.get("kind") == "flag"]
     for f in flags:
@@ -77,7 +87,9 @@ def render_status(store: Store) -> str:
                 flag = "  [needs confirmation]"
             elif i["status"] == "claimed":
                 flag = f"  [claimed by {i['worker']}]"
-            lines.append(f"  {i['id']}  from {i['from']}  {_scrub_inline(i['description'])[:80]}{flag}")
+            lines.append(
+                f"  {i['id']}  from {i['from']}  {_scrub_inline(i['description'])[:80]}{flag}"
+            )
     elif g["open_intents"]:
         lines.append("")
         lines.append("(open intents exist but none ready - check confirmations)")
@@ -114,14 +126,14 @@ def render_recall(matches: list[dict], query: str) -> str:
         doc = "  📄" if m["has_doc"] else ""
         desc = _scrub_inline(m["description"])[:90]
         lines.append(
-            f"  {m['id']} ({m['kind']}, score={m['score']:.2f})  "
-            f"{title}{desc}{doc}"
+            f"  {m['id']} ({m['kind']}, score={m['score']:.2f})  {title}{desc}{doc}"
         )
     return "\n".join(lines)
 
 
-def render_history_block(store: Store, *, max_facts: int = 8,
-                         max_intents: int = 4) -> str:
+def render_history_block(
+    store: Store, *, max_facts: int = 8, max_intents: int = 4
+) -> str:
     """Compact history snapshot for hook injection: recent confirmed facts
     + recently-done intents, title + one-line description only. The model
     eyeballs this to decide whether it has seen the current request before."""
@@ -159,15 +171,23 @@ def render_graph_text(store: Store) -> str:
     lines.append("")
     lines.append("## facts")
     for f in g["facts"]:
-        src = f"  <- {_scrub_inline(f['source_intent'])}" if f.get("source_intent") else ""
+        src = (
+            f"  <- {_scrub_inline(f['source_intent'])}"
+            if f.get("source_intent")
+            else ""
+        )
         t = f"[{_scrub_inline(f['title'])}]  " if f.get("title") else ""
         k = f"<{f['kind']}>" if f.get("kind") else ""
         data = ""
         if f.get("data"):
-            pairs = " ".join(f"{key}={_scrub_inline(str(val))}" for key, val in f["data"].items())
+            pairs = " ".join(
+                f"{key}={_scrub_inline(str(val))}" for key, val in f["data"].items()
+            )
             data = f"  ({pairs})"
         doc = "  📄" if f.get("doc") else ""
-        lines.append(f"  {f['id']}: {k}{t}{_scrub_inline(f['description'])}{data}{src}{doc}")
+        lines.append(
+            f"  {f['id']}: {k}{t}{_scrub_inline(f['description'])}{data}{src}{doc}"
+        )
     lines.append("")
     lines.append("## intents")
     for i in g["intents"]:
@@ -179,12 +199,16 @@ def render_graph_text(store: Store) -> str:
             flag = f"  ~{i['worker']}"
         t = f"[{_scrub_inline(i['title'])}]  " if i.get("title") else ""
         doc = "  📄" if i.get("doc") else ""
-        lines.append(f"  {i['id']}: {i['from']} -> {to}  {t}{_scrub_inline(i['description'])[:70]}{flag}{doc}")
+        lines.append(
+            f"  {i['id']}: {i['from']} -> {to}  {t}{_scrub_inline(i['description'])[:70]}{flag}{doc}"
+        )
     if g["hints"]:
         lines.append("")
         lines.append("## hints")
         for h in g["hints"]:
-            lines.append(f"  {h['id']} ({_scrub_inline(h['creator'])}): {_scrub_inline(h['content'])}")
+            lines.append(
+                f"  {h['id']} ({_scrub_inline(h['creator'])}): {_scrub_inline(h['content'])}"
+            )
     return "\n".join(lines)
 
 
@@ -199,7 +223,8 @@ def render_prompt(store: Store, template_text: str, time_budget: str = "") -> st
         "fact_ids": json.dumps(g["fact_ids"], ensure_ascii=False, indent=2),
         "open_intents": json.dumps(
             [_intent_brief(i) for i in g["open_intents"]],
-            ensure_ascii=False, indent=2,
+            ensure_ascii=False,
+            indent=2,
         ),
         "hints": json.dumps(
             [_hint_brief(h) for h in g["hints"]], ensure_ascii=False, indent=2
@@ -216,10 +241,16 @@ def render_intent_prompt(store: Store, template_text: str, intent: dict) -> str:
     # to THIS intent. Excludes the intent itself (it would otherwise score 1.0
     # against its own description). Keep small (5) - the model just needs a
     # short list of ids it can `sapper doc` into.
-    matches = [m for m in recall(store, intent.get("description", ""), limit=6)
-               if m["id"] != intent["id"]][:5]
-    recall_block = render_recall(matches, intent.get("description", "")) \
-        if matches else "(no prior nodes look similar to this intent)"
+    matches = [
+        m
+        for m in recall(store, intent.get("description", ""), limit=6)
+        if m["id"] != intent["id"]
+    ][:5]
+    recall_block = (
+        render_recall(matches, intent.get("description", ""))
+        if matches
+        else "(no prior nodes look similar to this intent)"
+    )
     replacements = {
         "graph_yaml": _to_yaml_like(g),
         "intent_id": intent["id"],
@@ -266,12 +297,18 @@ def _to_yaml_like(g: dict) -> str:
     lines.append(f"goal: {_prompt_inline(g['project']['goal'])}")
     lines.append("facts:")
     for f in g["facts"]:
-        src = f" (from {_prompt_inline(f['source_intent'])})" if f.get("source_intent") else ""
+        src = (
+            f" (from {_prompt_inline(f['source_intent'])})"
+            if f.get("source_intent")
+            else ""
+        )
         title = f"[{_prompt_inline(f['title'])}] " if f.get("title") else ""
         kind = f"<{f['kind']}> " if f.get("kind") else ""
         data = ""
         if f.get("data"):
-            pairs = " ".join(f"{k}={_prompt_inline(str(v))}" for k, v in f["data"].items())
+            pairs = " ".join(
+                f"{k}={_prompt_inline(str(v))}" for k, v in f["data"].items()
+            )
             data = f" {{{pairs}}}"
         has_doc = " (has doc)" if f.get("doc") else ""
         lines.append(

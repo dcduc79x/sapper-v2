@@ -25,6 +25,7 @@ or for SessionStart:
                           "additionalContext": "..." }}
 A plain string on stdout is also accepted as context.
 """
+
 from __future__ import annotations
 
 import json
@@ -103,7 +104,10 @@ def _frontier_block(store_path: Path) -> str:
         # cap context size (review H2): long frontiers bloat every turn.
         MAX = 6000
         if len(text) > MAX:
-            text = text[:MAX] + "\n... (graph truncated; run `sapper graph` for the full list)"
+            text = (
+                text[:MAX]
+                + "\n... (graph truncated; run `sapper graph` for the full list)"
+            )
         return text
     except Exception as exc:  # never break the user's turn
         return f"(sapper: could not read graph: {exc})"
@@ -123,7 +127,7 @@ def sessionstart() -> int:
         "  - read it with `sapper status` / `sapper graph` before starting work\n"
         "  - record confirmed results with `sapper fact` / `sapper done`\n"
         "    (typed kinds: host/service/cred/vuln/loot/flag, with -d key=value data)\n"
-        "  - capture flags immediately: `sapper flag \"flag{...}\" -c <challenge>`\n"
+        '  - capture flags immediately: `sapper flag "flag{...}" -c <challenge>`\n'
         "  - propose next steps into it with `sapper dispatch reason`\n"
     )
     payload = {
@@ -193,7 +197,9 @@ def _emit_context(text: str) -> None:
 
 def main(argv: list[str]) -> int:
     if not argv:
-        sys.stderr.write("fg-hook: need an event name (sessionstart|userpromptsubmit)\n")
+        sys.stderr.write(
+            "fg-hook: need an event name (sessionstart|userpromptsubmit)\n"
+        )
         return 2
     event = argv[0]
     if event in ("sessionstart", "SessionStart"):

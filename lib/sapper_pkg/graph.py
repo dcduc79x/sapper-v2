@@ -12,8 +12,14 @@ from .schema import _node_schema_errors
 from .storage import Store, read_json
 
 __all__ = [
-    "is_open", "is_ready", "build_graph_view", "validate_graph", "frontier",
-    "recall", "_recall_tokenize", "_recall_score",
+    "is_open",
+    "is_ready",
+    "build_graph_view",
+    "validate_graph",
+    "frontier",
+    "recall",
+    "_recall_tokenize",
+    "_recall_score",
 ]
 
 
@@ -74,12 +80,22 @@ def _audit_nodes(store: Store) -> tuple[dict[str, dict[str, dict]], list[str]]:
     """Read every node file, reporting damage and indexing valid nodes by id."""
     errors: list[str] = []
     by_kind: dict[str, dict[str, dict]] = {"fact": {}, "intent": {}, "hint": {}}
-    dirs = {"fact": store.facts_dir, "intent": store.intents_dir, "hint": store.hints_dir}
+    dirs = {
+        "fact": store.facts_dir,
+        "intent": store.intents_dir,
+        "hint": store.hints_dir,
+    }
     for kind, directory in dirs.items():
         for path in sorted(directory.glob("*.json")):
             try:
                 data = read_json(path)
-            except (json.JSONDecodeError, UnicodeDecodeError, OSError, TypeError, ValueError) as exc:
+            except (
+                json.JSONDecodeError,
+                UnicodeDecodeError,
+                OSError,
+                TypeError,
+                ValueError,
+            ) as exc:
                 errors.append(f"{kind} {path.name}: unreadable JSON ({exc})")
                 continue
             schema = _node_schema_errors(data, kind)
@@ -88,7 +104,9 @@ def _audit_nodes(store: Store) -> tuple[dict[str, dict[str, dict]], list[str]]:
                 continue
             node_id = data["id"]
             if path.stem != node_id:
-                errors.append(f"{kind} {path.name}: filename does not match id {node_id!r}")
+                errors.append(
+                    f"{kind} {path.name}: filename does not match id {node_id!r}"
+                )
             if node_id in by_kind[kind]:
                 errors.append(f"duplicate {kind} id {node_id!r}")
             by_kind[kind][node_id] = data
@@ -103,7 +121,9 @@ def _validate_goal(facts: dict[str, dict], project: dict) -> list[str]:
     return []
 
 
-def _validate_intent_links(facts: dict[str, dict], intents: dict[str, dict]) -> list[str]:
+def _validate_intent_links(
+    facts: dict[str, dict], intents: dict[str, dict]
+) -> list[str]:
     errors: list[str] = []
     for iid, intent in intents.items():
         for fid in intent["from"]:
@@ -114,8 +134,14 @@ def _validate_intent_links(facts: dict[str, dict], intents: dict[str, dict]) -> 
         target = intent["to"]
         if target is not None and target != GOAL_ID and target not in facts:
             errors.append(f"intent {iid}: target fact {target} does not exist")
-        elif target is not None and target != GOAL_ID and facts[target].get("source_intent") != iid:
-            errors.append(f"intent {iid}: target fact {target} does not name it as source intent")
+        elif (
+            target is not None
+            and target != GOAL_ID
+            and facts[target].get("source_intent") != iid
+        ):
+            errors.append(
+                f"intent {iid}: target fact {target} does not name it as source intent"
+            )
     return errors
 
 
@@ -126,7 +152,9 @@ def _validate_fact_links(facts: dict[str, dict], intents: dict[str, dict]) -> li
         if source is not None and source not in intents:
             errors.append(f"fact {fid}: source intent {source} does not exist")
         elif source is not None and intents[source].get("to") != fid:
-            errors.append(f"fact {fid}: source intent {source} does not point to this fact")
+            errors.append(
+                f"fact {fid}: source intent {source} does not point to this fact"
+            )
     return errors
 
 
@@ -221,8 +249,12 @@ def _recall_score(query: str, node: dict) -> float:
     return overlap_score + ratio_bonus
 
 
-def recall(store: Store, query: str, limit: int = 5,
-           kinds: tuple[str, ...] = ("fact", "intent")) -> list[dict]:
+def recall(
+    store: Store,
+    query: str,
+    limit: int = 5,
+    kinds: tuple[str, ...] = ("fact", "intent"),
+) -> list[dict]:
     """Return top-N nodes by similarity to `query`. Each returned dict has:
         id, kind, title, description, has_doc, score
     Ordered by score desc, then by id (stable).
@@ -236,27 +268,29 @@ def recall(store: Store, query: str, limit: int = 5,
                 continue  # skip the terminal goal node
             s = _recall_score(query, f)
             if s > 0:
-                candidates.append({
-                    "id": f["id"],
-                    "kind": "fact",
-                    "title": f.get("title"),
-                    "description": f.get("description", ""),
-                    "has_doc": bool(f.get("doc")),
-                    "score": s,
-                })
+                candidates.append(
+                    {
+                        "id": f["id"],
+                        "kind": "fact",
+                        "title": f.get("title"),
+                        "description": f.get("description", ""),
+                        "has_doc": bool(f.get("doc")),
+                        "score": s,
+                    }
+                )
     if "intent" in kinds:
         for i in store.list_intents():
             s = _recall_score(query, i)
             if s > 0:
-                candidates.append({
-                    "id": i["id"],
-                    "kind": "intent",
-                    "title": i.get("title"),
-                    "description": i.get("description", ""),
-                    "has_doc": bool(i.get("doc")),
-                    "score": s,
-                })
+                candidates.append(
+                    {
+                        "id": i["id"],
+                        "kind": "intent",
+                        "title": i.get("title"),
+                        "description": i.get("description", ""),
+                        "has_doc": bool(i.get("doc")),
+                        "score": s,
+                    }
+                )
     candidates.sort(key=lambda c: (-c["score"], c["id"]))
     return candidates[:limit]
-
-
