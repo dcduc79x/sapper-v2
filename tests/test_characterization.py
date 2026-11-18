@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -287,6 +288,31 @@ class FacadeContractTests(unittest.TestCase):
             rc, out = _run_cli("--store", store, "status")
             self.assertEqual(rc, 0)
             self.assertIn("counts: 1 facts, 0 open / 0 done intents, 0 hints", out)
+
+
+class StorageConcurrencyTests(unittest.TestCase):
+    """The extracted Store must keep cross-process flock semantics."""
+
+    def test_parallel_fact_writes_are_serialized(self):
+        with tempfile.TemporaryDirectory(prefix="sapper-flock-") as store:
+            rc, _ = _run_cli("--store", store, "init", "--goal", "concurrent")
+            self.assertEqual(rc, 0)
+            cli = str(ROOT / "lib" / "sapper.py")
+            procs = [
+                subprocess.Popen(
+                    [sys.executable, cli, "--store", store, "fact", f"fact {i}"],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                )
+                for i in range(4)
+            ]
+            for proc in procs:
+                _out, err = proc.communicate(timeout=30)
+                self.assertEqual(proc.returncode, 0, err)
+            graph = sapper.Store(Path(store))
+            facts = [f for f in graph.list_facts() if f["id"] != "goal"]
+            self.assertEqual(len(facts), 4)
+            self.assertEqual(len({f["id"] for f in facts}), 4)
+            self.assertEqual(sapper.validate_graph(graph), [])
 
 
 if __name__ == "__main__":
