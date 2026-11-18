@@ -29,6 +29,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -2523,153 +2524,197 @@ def format_time_budget(deadline: float | None) -> str:
     return f"{text} remaining until the {local_end} deadline (local time)"
 
 
-def cmd_auto(args) -> int:
-    """Drive the whole graph forward until goal reached or budget exhausted.
+@dataclass
+class _AutoCtx:
+    """Mutable state shared by the auto loop's phase helpers."""
 
-    One iteration = reason (propose/complete) ; then for each newly-ready
-    intent: explore ; (optionally) verify. Stops on: goal complete, reason
-    returns noop/rejected twice in a row, no progress, or step budget hit.
-    """
+    store: Store
+    args: object
+    templates_dir: Path
+    model: str
+    timeout: int
+    skip: bool
+    cwd: Path
+    max_steps: int
+    max_explore: int
+    verify: bool
+    dry: bool
+    deadline: float | None
+    noop_streak: int = 0
+    reason_failures: int = 0
+    explore_count: int = 0
+
+
+def _auto_setup(args) -> _AutoCtx:
+    """Validate arguments and emit the startup banner."""
     store = Store(Path(args.store))
     store.require()
-    templates_dir = Path(args.templates)
-    model = args.model
-    timeout = args.timeout
-    skip = args.skip_permissions
-    cwd = Path.cwd()
-    max_steps = args.max_steps
-    max_explore = args.max_explore
-    if timeout < 1:
+    if args.timeout < 1:
         raise FGError("--timeout must be at least 1 second")
-    if max_steps < 1:
+    if args.max_steps < 1:
         raise FGError("--max-steps must be at least 1")
-    if max_explore < 1:
+    if args.max_explore < 1:
         raise FGError("--max-explore must be at least 1")
-    verify = args.verify
-    dry = args.dry_run
     deadline = deadline_from_args(args)
     if deadline is not None:
         print(f"[auto] deadline {datetime.fromtimestamp(deadline).strftime('%Y-%m-%d %H:%M')} "
               f"({format_time_budget(deadline)})")
+    print(f"[auto] start  model={args.model} max_steps={args.max_steps} verify={args.verify}")
+    return _AutoCtx(
+        store=store, args=args, templates_dir=Path(args.templates),
+        model=args.model, timeout=args.timeout, skip=args.skip_permissions,
+        cwd=Path.cwd(), max_steps=args.max_steps, max_explore=args.max_explore,
+        verify=args.verify, dry=args.dry_run, deadline=deadline,
+    )
 
-    print(f"[auto] start  model={model} max_steps={max_steps} verify={verify}")
-    noop_streak = 0
-    reason_failures = 0  # transient API errors must not kill the loop
-    explore_count = 0
-    for step in range(1, max_steps + 1):
-        if deadline is not None and time.time() >= deadline:
+
+def _auto_reason(ctx: _AutoCtx, step: int) -> tuple[str, str | None]:
+    """Reason phase. Returns (status, kind) with status in break/continue/proceed."""
+    print(f"[auto] step {step}.1 reason")
+    if ctx.dry:
+        # dry-run prints the rendered prompt; it never mutates the graph,
+        # so one pass is enough (review L5: don't repeat max_steps times).
+        _dispatch_reason(ctx.store, ctx.templates_dir, ctx.model, ctx.timeout,
+                         ctx.skip, ctx.cwd, ctx.args)
+        return "break", None
+    try:
+        kind, summary = _run_reason_raw(
+            ctx.store, ctx.templates_dir, ctx.model, ctx.timeout, ctx.skip, ctx.cwd,
+            time_budget=getattr(ctx.args, "time_budget", "") or "",
+        )
+        ctx.reason_failures = 0
+    except FGError as exc:
+        ctx.reason_failures += 1
+        print(f"[auto] step {step}: reason failed ({ctx.reason_failures}): {exc}")
+        if ctx.reason_failures >= 2:
+            print("[auto] reason failed twice in a row - stopping this challenge (graph preserved)")
+            return "break", None
+        time.sleep(15)
+        return "continue", None
+    print(f"[auto]        reason -> {summary}")
+    return "proceed", kind
+
+
+def _auto_after_reason(ctx: _AutoCtx, step: int, kind: str) -> str:
+    """Completion / noop gates after a successful reason step."""
+    if ctx.store.load_project()["status"] == "completed":
+        print(f"[auto] step {step}: goal completed by reason")
+        return "break"
+    if kind in ("noop", "rejected"):
+        ctx.noop_streak += 1
+        if ctx.noop_streak >= 2:
+            print(f"[auto] step {step}: reason {kind} twice - stopping")
+            return "break"
+        return "continue"
+    ctx.noop_streak = 0
+    return "proceed"
+
+
+def _auto_verify(ctx: _AutoCtx, step: int, intent: dict) -> None:
+    iid = intent["id"]
+    refreshed = ctx.store.get_intent(iid)
+    if refreshed["to"] is None:
+        return
+    print(f"[auto] step {step}.3 verify {iid}")
+    try:
+        verified, issues = _run_verify_raw(
+            ctx.store, ctx.templates_dir, refreshed, ctx.model, ctx.timeout,
+            ctx.skip, ctx.cwd,
+        )
+        tag = "VERIFIED" if verified else "FAILED"
+        print(f"[auto]        verify {iid} -> {tag}" + (f": {issues}" if issues else ""))
+        if not verified:
+            ctx.store.add_hint(
+                content=(
+                    f"verification failed for {iid}: "
+                    f"{issues or 'the produced fact did not pass verification'}"
+                ),
+                creator="verify",
+            )
+    except FGError as exc:
+        print(f"[auto] verify {iid} failed: {exc}")
+        ctx.store.add_hint(
+            content=f"verification could not complete for {iid}: {exc}",
+            creator="verify",
+        )
+
+
+def _auto_explore_one(ctx: _AutoCtx, step: int, intent: dict) -> None:
+    print(f"[auto] step {step}.2 explore {intent['id']}")
+    try:
+        _run_explore_raw(
+            ctx.store, ctx.templates_dir, intent, ctx.model, ctx.timeout,
+            ctx.skip, ctx.cwd, claim=True,
+        )
+        ctx.explore_count += 1
+    except FGError as exc:
+        if "already concluded" in str(exc):
+            # the executor concluded the intent itself (`sapper done`)
+            # - that is a success, not a failure
+            ctx.explore_count += 1
+            print(f"[auto]        {intent['id']} concluded by the executor itself")
+            return
+        print(f"[auto] explore {intent['id']} failed: {exc}")
+        return
+    if ctx.verify:
+        _auto_verify(ctx, step, intent)
+
+
+def _auto_explore_phase(ctx: _AutoCtx, step: int, before: tuple) -> str:
+    auto_worker = _worker_id(ctx.model)
+    ready = [
+        i for i in frontier(ctx.store)
+        if not i.get("worker") or i.get("worker") == auto_worker
+    ]
+    if not ready:
+        print(f"[auto] step {step}.2 no ready intents after reason")
+        if _graph_signature(ctx.store) == before:
+            print("[auto] no graph change and no ready work - stopping")
+            return "break"
+        return "continue"
+    for intent in ready:
+        if ctx.explore_count >= ctx.max_explore:
+            print(f"[auto] explore cap ({ctx.max_explore}) reached this run")
+            break
+        if intent["requires_confirmation"] and not intent["confirmed_at"]:
+            print(f"[auto] step {step}.2 skip {intent['id']} (needs confirmation)")
+            continue
+        _auto_explore_one(ctx, step, intent)
+    if _graph_signature(ctx.store) == before:
+        print(f"[auto] step {step}: no graph change after work - stopping")
+        return "break"
+    return "continue"
+
+
+def cmd_auto(args) -> int:
+    """Drive the whole graph forward until goal reached or budget exhausted."""
+    ctx = _auto_setup(args)
+    for step in range(1, ctx.max_steps + 1):
+        if ctx.deadline is not None and time.time() >= ctx.deadline:
             print("[auto] deadline reached - stopping (record what you have)")
             break
-        args.time_budget = format_time_budget(deadline)
-        project = store.load_project()
-        if project["status"] == "completed":
+        args.time_budget = format_time_budget(ctx.deadline)
+        if ctx.store.load_project()["status"] == "completed":
             print(f"[auto] step {step}: project already completed")
             break
-        before = _graph_signature(store)
+        before = _graph_signature(ctx.store)
 
-        # 1) reason
-        print(f"[auto] step {step}.1 reason")
-        if dry:
-            # dry-run prints the rendered prompt; it never mutates the graph,
-            # so one pass is enough (review L5: don't repeat max_steps times).
-            _dispatch_reason(store, templates_dir, model, timeout, skip, cwd, args)
+        status, kind = _auto_reason(ctx, step)
+        if status == "break":
             break
-        try:
-            kind, summary = _run_reason_raw(
-                store, templates_dir, model, timeout, skip, cwd,
-                time_budget=getattr(args, "time_budget", "") or "",
-            )
-            reason_failures = 0
-        except FGError as exc:
-            reason_failures += 1
-            print(f"[auto] step {step}: reason failed ({reason_failures}): {exc}")
-            if reason_failures >= 2:
-                print("[auto] reason failed twice in a row - stopping this challenge (graph preserved)")
-                break
-            time.sleep(15)
+        if status == "continue":
             continue
-        print(f"[auto]        reason -> {summary}")
-
-        project = store.load_project()
-        if project["status"] == "completed":
-            print(f"[auto] step {step}: goal completed by reason")
+        status = _auto_after_reason(ctx, step, kind)
+        if status == "break":
             break
-        if kind in ("noop", "rejected"):
-            noop_streak += 1
-            if noop_streak >= 2:
-                print(f"[auto] step {step}: reason {kind} twice - stopping")
-                break
+        if status == "continue":
             continue
-        noop_streak = 0
 
-        # 2) explore each ready intent, up to the per-step cap
-        auto_worker = _worker_id(model)
-        ready = [
-            i for i in frontier(store)
-            if not i.get("worker") or i.get("worker") == auto_worker
-        ]
-        if not ready:
-            print(f"[auto] step {step}.2 no ready intents after reason")
-            if _graph_signature(store) == before:
-                print("[auto] no graph change and no ready work - stopping")
-                break
-            continue
-        for intent in ready:
-            if explore_count >= max_explore:
-                print(f"[auto] explore cap ({max_explore}) reached this run")
-                break
-            if intent["requires_confirmation"] and not intent["confirmed_at"]:
-                print(f"[auto] step {step}.2 skip {intent['id']} (needs confirmation)")
-                continue
-            print(f"[auto] step {step}.2 explore {intent['id']}")
-            try:
-                _run_explore_raw(
-                    store, templates_dir, intent, model, timeout, skip, cwd,
-                    claim=True,
-                )
-                explore_count += 1
-            except FGError as exc:
-                if "already concluded" in str(exc):
-                    # the executor concluded the intent itself (`sapper done`)
-                    # - that is a success, not a failure
-                    explore_count += 1
-                    print(f"[auto]        {intent['id']} concluded by the executor itself")
-                    continue
-                print(f"[auto] explore {intent['id']} failed: {exc}")
-                continue
-            # 3) optional verify
-            if verify:
-                iid = intent["id"]
-                refreshed = store.get_intent(iid)
-                if refreshed["to"] is not None:
-                    print(f"[auto] step {step}.3 verify {iid}")
-                    try:
-                        verified, issues = _run_verify_raw(
-                            store, templates_dir, refreshed, model, timeout, skip, cwd
-                        )
-                        tag = "VERIFIED" if verified else "FAILED"
-                        print(f"[auto]        verify {iid} -> {tag}" + (f": {issues}" if issues else ""))
-                        if not verified:
-                            store.add_hint(
-                                content=(
-                                    f"verification failed for {iid}: "
-                                    f"{issues or 'the produced fact did not pass verification'}"
-                                ),
-                                creator="verify",
-                            )
-                    except FGError as exc:
-                        print(f"[auto] verify {iid} failed: {exc}")
-                        store.add_hint(
-                            content=f"verification could not complete for {iid}: {exc}",
-                            creator="verify",
-                        )
-
-        if _graph_signature(store) == before:
-            print(f"[auto] step {step}: no graph change after work - stopping")
+        if _auto_explore_phase(ctx, step, before) == "break":
             break
 
-    project = store.load_project()
-    print(f"[auto] done  status={project['status']}  explored={explore_count}")
+    project = ctx.store.load_project()
+    print(f"[auto] done  status={project['status']}  explored={ctx.explore_count}")
     return 0
 
 

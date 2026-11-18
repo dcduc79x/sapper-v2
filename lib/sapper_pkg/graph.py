@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+import json
 import re
 
 from .errors import FGError
@@ -55,25 +56,23 @@ def build_graph_view(store: Store) -> dict:
     }
 
 
-def validate_graph(store: Store) -> list[str]:
-    """Return integrity errors without mutating the graph.
-
-    Normal read commands deliberately skip malformed node files so a damaged
-    graph remains inspectable.  This explicit audit command gives operators a
-    complete, actionable report before they dispatch agents or commit `.sapper/`.
-    """
+def _validate_project(project: dict) -> list[str]:
+    """Project-level metadata checks (first phase of the audit)."""
     errors: list[str] = []
-    try:
-        project = store.load_project()
-    except FGError as exc:
-        return [str(exc)]
     if project.get("status") not in {"active", "completed"}:
-        errors.append(f"project status must be 'active' or 'completed', got {project.get('status')!r}")
+        errors.append(
+            f"project status must be 'active' or 'completed', got {project.get('status')!r}"
+        )
     counters = project.get("counters", {})
     for kind in ("fact", "intent", "hint", "run"):
         if kind not in counters:
             errors.append(f"project counters missing {kind!r}")
+    return errors
 
+
+def _audit_nodes(store: Store) -> tuple[dict[str, dict[str, dict]], list[str]]:
+    """Read every node file, reporting damage and indexing valid nodes by id."""
+    errors: list[str] = []
     by_kind: dict[str, dict[str, dict]] = {"fact": {}, "intent": {}, "hint": {}}
     dirs = {"fact": store.facts_dir, "intent": store.intents_dir, "hint": store.hints_dir}
     for kind, directory in dirs.items():
@@ -93,13 +92,19 @@ def validate_graph(store: Store) -> list[str]:
             if node_id in by_kind[kind]:
                 errors.append(f"duplicate {kind} id {node_id!r}")
             by_kind[kind][node_id] = data
+    return by_kind, errors
 
-    facts = by_kind["fact"]
-    intents = by_kind["intent"]
+
+def _validate_goal(facts: dict[str, dict], project: dict) -> list[str]:
     if GOAL_ID not in facts:
-        errors.append("missing terminal goal fact")
-    elif facts[GOAL_ID].get("description") != project.get("goal"):
-        errors.append("goal fact description does not match project goal")
+        return ["missing terminal goal fact"]
+    if facts[GOAL_ID].get("description") != project.get("goal"):
+        return ["goal fact description does not match project goal"]
+    return []
+
+
+def _validate_intent_links(facts: dict[str, dict], intents: dict[str, dict]) -> list[str]:
+    errors: list[str] = []
     for iid, intent in intents.items():
         for fid in intent["from"]:
             if fid not in facts:
@@ -111,17 +116,50 @@ def validate_graph(store: Store) -> list[str]:
             errors.append(f"intent {iid}: target fact {target} does not exist")
         elif target is not None and target != GOAL_ID and facts[target].get("source_intent") != iid:
             errors.append(f"intent {iid}: target fact {target} does not name it as source intent")
+    return errors
+
+
+def _validate_fact_links(facts: dict[str, dict], intents: dict[str, dict]) -> list[str]:
+    errors: list[str] = []
     for fid, fact in facts.items():
         source = fact.get("source_intent")
         if source is not None and source not in intents:
             errors.append(f"fact {fid}: source intent {source} does not exist")
         elif source is not None and intents[source].get("to") != fid:
             errors.append(f"fact {fid}: source intent {source} does not point to this fact")
+    return errors
+
+
+def _validate_completion(intents: dict[str, dict], project: dict) -> list[str]:
+    errors: list[str] = []
     goal_intents = [i for i in intents.values() if i["to"] == GOAL_ID]
     if project.get("status") == "completed" and not goal_intents:
         errors.append("project is completed but no intent targets the goal")
     if project.get("status") == "active" and goal_intents:
         errors.append("project is active although an intent already targets the goal")
+    return errors
+
+
+def validate_graph(store: Store) -> list[str]:
+    """Return integrity errors without mutating the graph.
+
+    Normal read commands deliberately skip malformed node files so a damaged
+    graph remains inspectable.  This explicit audit command gives operators a
+    complete, actionable report before they dispatch agents or commit `.sapper/`.
+    """
+    errors: list[str] = []
+    try:
+        project = store.load_project()
+    except FGError as exc:
+        return [str(exc)]
+    errors.extend(_validate_project(project))
+    by_kind, node_errors = _audit_nodes(store)
+    errors.extend(node_errors)
+    facts, intents = by_kind["fact"], by_kind["intent"]
+    errors.extend(_validate_goal(facts, project))
+    errors.extend(_validate_intent_links(facts, intents))
+    errors.extend(_validate_fact_links(facts, intents))
+    errors.extend(_validate_completion(intents, project))
     return errors
 
 

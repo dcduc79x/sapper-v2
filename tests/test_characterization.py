@@ -15,6 +15,8 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "lib"))
@@ -288,6 +290,81 @@ class FacadeContractTests(unittest.TestCase):
             rc, out = _run_cli("--store", store, "status")
             self.assertEqual(rc, 0)
             self.assertIn("counts: 1 facts, 0 open / 0 done intents, 0 hints", out)
+
+
+class AutoLoopContractTests(unittest.TestCase):
+    """cmd_auto's reason -> explore flow must survive phase extraction."""
+
+    def test_reason_then_explore_then_stop_on_no_change(self):
+        with tempfile.TemporaryDirectory(prefix="sapper-auto-") as store:
+            _run_cli("--store", store, "init", "--goal", "g")
+            _run_cli("--store", store, "fact", "seed")
+            _run_cli("--store", store, "intent", "--from", "f001", "do work")
+            args = SimpleNamespace(
+                store=store, templates=str(ROOT / "templates"), model="m",
+                timeout=5, skip_permissions=False, max_steps=3, max_explore=2,
+                verify=False, dry_run=False, minutes=None, deadline=None,
+            )
+            out = io.StringIO()
+            with mock.patch.object(sapper, "_run_reason_raw", return_value=("proceed", "ok")), \
+                 mock.patch.object(
+                     sapper, "_run_explore_raw",
+                     side_effect=sapper.FGError("intent i001 already concluded"),
+                 ), \
+                 contextlib.redirect_stdout(out):
+                rc = sapper.cmd_auto(args)
+            text = out.getvalue()
+            self.assertEqual(rc, 0)
+            self.assertIn("[auto] step 1.1 reason", text)
+            self.assertIn("reason -> ok", text)
+            self.assertIn("[auto] step 1.2 explore i001", text)
+            self.assertIn("concluded by the executor itself", text)
+            self.assertIn("no graph change after work", text)
+            self.assertIn("explored=1", text)
+
+
+class ValidateGraphContractTests(unittest.TestCase):
+    """validate_graph error strings and their order are user-facing."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="sapper-validate-")
+        self.addCleanup(self.tmp.cleanup)
+        self.store = Path(self.tmp.name)
+        _run_cli("--store", self.tmp.name, "init", "--goal", "g")
+
+    def _errors(self):
+        return sapper.validate_graph(sapper.Store(self.store))
+
+    def test_healthy_graph_has_no_errors(self):
+        self.assertEqual(self._errors(), [])
+
+    def test_corrupt_node_is_reported(self):
+        (self.store / "facts" / "f002.json").write_text("{not json", encoding="utf-8")
+        self.assertTrue(any("unreadable JSON" in e for e in self._errors()))
+
+    def test_missing_goal_fact(self):
+        (self.store / "facts" / "goal.json").unlink()
+        self.assertEqual(self._errors(), ["missing terminal goal fact"])
+
+    def test_duplicate_id_and_filename_mismatch(self):
+        import json
+        fact = json.loads((self.store / "facts" / "goal.json").read_text())
+        fact["id"] = "f009"
+        for name in ("f009.json", "f010.json"):
+            (self.store / "facts" / name).write_text(json.dumps(fact))
+        errors = self._errors()
+        self.assertTrue(any("duplicate fact id 'f009'" in e for e in errors))
+        self.assertTrue(any("filename does not match id 'f009'" in e for e in errors))
+
+    def test_dangling_dependency_is_reported(self):
+        import json
+        intent = {
+            "id": "i001", "from": ["f404"], "to": None, "description": "d",
+            "created_at": "t", "status": "open", "worker": None,
+            "requires_confirmation": False, "confirmed_at": None,
+        }
+        (self.store / "intents" / "i001.json").write_text(json.dumps(intent))
+        self.assertEqual(self._errors(), ["intent i001: missing dependency fact f404"])
 
 
 class GraphAnalysisTests(unittest.TestCase):
