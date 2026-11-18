@@ -29,7 +29,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -654,75 +654,104 @@ def _kb(args):
     return module, module.KnowledgeBase(root)
 
 
+def _kb_add(args, kb) -> int:
+    detail = args.detail or ""
+    if args.detail_file:
+        detail = Path(args.detail_file).read_text(encoding="utf-8")
+    entry = kb.add(
+        title=args.target,
+        description=args.description or "",
+        detail=detail,
+        commands=args.command or [],
+        tags=args.tag or [],
+        source=args.source or "",
+    )
+    print(f"{entry['id']}  {entry['title']}")
+    return 0
+
+
+def _kb_show(args, kb) -> int:
+    print(json.dumps(kb.get(args.target), ensure_ascii=False, indent=2))
+    return 0
+
+
+def _kb_list(args, kb) -> int:
+    entries = kb.list_entries()
+    if args.tag:
+        wants = {t.strip().lower() for t in args.tag}
+        entries = [
+            e for e in entries
+            if wants & {t.lower() for t in e.get("tags", [])}
+        ]
+    if not entries:
+        print(f"(no kb entries matching tag filter at {kb.root})")
+        return 0
+    for e in entries:
+        tags = ",".join(e.get("tags", []))
+        print(f"{e['id']}\t[{tags}]\t{e['title']}")
+    return 0
+
+
+def _kb_search(args, kb) -> int:
+    tag = args.tag[0] if args.tag else None
+    hits = kb.search(args.target, tag=tag, limit=args.limit)
+    if not hits:
+        print("(no kb matches - try other keywords, `sapper kb list` to browse)")
+        return 0
+    for h in hits:
+        tags = ",".join(h["tags"])
+        print(f"{h['id']}\tscore={h['score']}\t[{tags}]\t{h['title']}")
+        if h["description"]:
+            print(f"      {h['description'][:100]}")
+    print("read full entries with: sapper kb show <id>")
+    return 0
+
+
+def _kb_import(args, module, kb) -> int:
+    target = Path(args.target)
+    if not target.exists():
+        raise FGError(f"import path not found: {target}")
+    files = sorted(target.glob("*.md")) if target.is_dir() else [target]
+    if target.is_dir() and not files:
+        raise FGError(f"no .md files under {target}")
+    added = 0
+    for f in files:
+        parsed = module.import_markdown(
+            f, base_tags=args.tag or [], source=str(f),
+        )
+        entry = kb.add(**parsed)
+        print(f"{entry['id']}  {entry['title']}")
+        added += 1
+    print(f"imported {added} entr{'y' if added == 1 else 'ies'} into {kb.root}")
+    return 0
+
+
+def _kb_root(kb) -> int:
+    print(kb.root)
+    return 0
+
+
+_KB_ACTIONS = {
+    "add": _kb_add,
+    "show": _kb_show,
+    "list": _kb_list,
+    "search": _kb_search,
+    "import": _kb_import,
+    "root": _kb_root,
+}
+
+
 def cmd_kb(args) -> int:
     module, kb = _kb(args)
-    try:
-        if args.action == "add":
-            detail = args.detail or ""
-            if args.detail_file:
-                detail = Path(args.detail_file).read_text(encoding="utf-8")
-            entry = kb.add(
-                title=args.target,
-                description=args.description or "",
-                detail=detail,
-                commands=args.command or [],
-                tags=args.tag or [],
-                source=args.source or "",
-            )
-            print(f"{entry['id']}  {entry['title']}")
-            return 0
-        if args.action == "show":
-            print(json.dumps(kb.get(args.target), ensure_ascii=False, indent=2))
-            return 0
-        if args.action == "list":
-            entries = kb.list_entries()
-            if args.tag:
-                wants = {t.strip().lower() for t in args.tag}
-                entries = [
-                    e for e in entries
-                    if wants & {t.lower() for t in e.get("tags", [])}
-                ]
-            if not entries:
-                print(f"(no kb entries matching tag filter at {kb.root})")
-                return 0
-            for e in entries:
-                tags = ",".join(e.get("tags", []))
-                print(f"{e['id']}\t[{tags}]\t{e['title']}")
-            return 0
-        if args.action == "search":
-            tag = args.tag[0] if args.tag else None
-            hits = kb.search(args.target, tag=tag, limit=args.limit)
-            if not hits:
-                print("(no kb matches - try other keywords, `sapper kb list` to browse)")
-                return 0
-            for h in hits:
-                tags = ",".join(h["tags"])
-                print(f"{h['id']}\tscore={h['score']}\t[{tags}]\t{h['title']}")
-                if h["description"]:
-                    print(f"      {h['description'][:100]}")
-            print("read full entries with: sapper kb show <id>")
-            return 0
-        if args.action == "import":
-            target = Path(args.target)
-            if not target.exists():
-                raise FGError(f"import path not found: {target}")
-            files = sorted(target.glob("*.md")) if target.is_dir() else [target]
-            if target.is_dir() and not files:
-                raise FGError(f"no .md files under {target}")
-            added = 0
-            for f in files:
-                parsed = module.import_markdown(
-                    f, base_tags=args.tag or [], source=str(f),
-                )
-                entry = kb.add(**parsed)
-                print(f"{entry['id']}  {entry['title']}")
-                added += 1
-            print(f"imported {added} entr{'y' if added == 1 else 'ies'} into {kb.root}")
-            return 0
-        if args.action == "root":
-            print(kb.root)
-            return 0
+    handler = _KB_ACTIONS.get(args.action)
+    if handler is None:
         raise FGError(f"unknown kb action {args.action!r}")
+    try:
+        if handler is _kb_import:
+            return handler(args, module, kb)
+        if handler is _kb_root:
+            return handler(kb)
+        return handler(args, kb)
     except module.KBError as exc:
         raise FGError(str(exc)) from exc
 
@@ -1164,12 +1193,27 @@ def _fire_worker(session: str, target: str) -> bool:
     return True
 
 
-def cmd_command(args) -> int:
-    """Field-commander loop: read the board, ask the model where the next
-    time slice goes, run `sapper auto` there, repeat until deadline/stop.
+@dataclass
+class _CommandCtx:
+    """Configuration and mutable state for the field-commander loop."""
 
-    Decisions: work (blocking slice here), hire (spawn a parallel tmux
-    worker on a challenge), fire (stop a worker), stop."""
+    args: object
+    root: Path
+    deadline: float
+    templates_dir: Path
+    model: str
+    timeout: int
+    skip: bool
+    cli: list[str]
+    passthrough: list[str]
+    fleet_cfg: dict
+    session: str
+    tpl: str
+    noop_streak: int = 0
+    worked: dict[str, int] = field(default_factory=dict)
+
+
+def _command_setup(args) -> _CommandCtx:
     root = Path(args.root)
     if not root.is_dir():
         raise FGError(f"command root {root} is not a directory")
@@ -1179,12 +1223,9 @@ def cmd_command(args) -> int:
     if deadline is None:
         raise FGError("command needs --minutes or --deadline (the match slot clock)")
     templates_dir = _resolve_templates_dir(args)
-    model = args.model
-    timeout = args.timeout
-    skip = args.skip_permissions
     cli = [sys.executable, str(Path(__file__).resolve())]
-    passthrough = ["--model", model]
-    if skip:
+    passthrough = ["--model", args.model]
+    if args.skip_permissions:
         passthrough.append("--skip-permissions")
     if args.verify:
         passthrough.append("--verify")
@@ -1194,92 +1235,123 @@ def cmd_command(args) -> int:
     fleet_cfg = _command_fleet_cfg(args)
     fleet_cfg["_base_dir"] = str(Path.cwd())
     session = fleet_cfg["session"]
-
     print(f"[command] field commander over {root}  "
           f"deadline {datetime.fromtimestamp(deadline).strftime('%H:%M')}")
     print(f"[command] fleet session {session!r} (hire/fire via tmux windows w-*)")
-    tpl = _load_template(templates_dir, "command.md")
-    noop_streak = 0
-    worked: dict[str, int] = {}
-    while time.time() < deadline:
-        workers = _active_workers(session)
-        rows = [r for r in _board_summary(root) if r["status"] != "completed"]
+    return _CommandCtx(
+        args=args, root=root, deadline=deadline, templates_dir=templates_dir,
+        model=args.model, timeout=args.timeout, skip=args.skip_permissions,
+        cli=cli, passthrough=passthrough, fleet_cfg=fleet_cfg, session=session,
+        tpl=_load_template(templates_dir, "command.md"),
+    )
+
+
+def _command_decide(ctx: _CommandCtx, rows: list[dict], workers: set[str]):
+    """Ask the model for the next slice, with a round-robin fallback."""
+    args = ctx.args
+    remaining_min = max(1, int((ctx.deadline - time.time()) // 60))
+    action = target = ""
+    minutes = min(args.minutes_default, remaining_min)
+    note = ""
+    try:
+        prompt = _replace_placeholders(ctx.tpl, {
+            "board": render_board(rows),
+            "time_budget": format_time_budget(ctx.deadline),
+        })
+        envelope = run_claude(
+            prompt, model=ctx.model, timeout=ctx.timeout, skip_permissions=False,
+            append_system=None, cwd=Path.cwd(),
+        )
+        action, target, minutes_raw, note = _parse_command_payload(
+            extract_json_object(envelope.get("result", ""))
+        )
+        minutes = max(1, min(int(minutes_raw or minutes), args.minutes_max, remaining_min))
+    except FGError as exc:
+        print(f"[command] model decision failed ({exc}); falling back to round-robin")
+        free = [r for r in rows if r["name"] not in workers]
+        row = next((r for r in free if ctx.worked.get(r["name"], 0) == min(ctx.worked.values() or [0])), rows[0])
+        action, target, minutes = "work", row["name"], min(args.minutes_default, remaining_min)
+        note = "round-robin fallback"
+    return action, target, minutes, note, remaining_min
+
+
+def _command_apply(
+    ctx: _CommandCtx, names: set[str], action: str, target: str,
+    minutes: int, note: str,
+) -> str:
+    """Dispatch one decision. Returns 'continue', 'break' or 'next'."""
+    args = ctx.args
+    if action == "reject":
+        ctx.noop_streak += 1
+        if ctx.noop_streak >= 2:
+            print("[command] model rejected the board twice - stopping")
+            return "break"
+        return "continue"
+    if action == "stop":
+        print(f"[command] model says stop: {note}")
+        return "break"
+    if target not in names and action != "work":
+        print(f"[command] unknown/parked target {target!r}; skipping decision")
+        ctx.noop_streak += 1
+        if ctx.noop_streak >= 3:
+            return "break"
+        return "continue"
+    ctx.noop_streak = 0
+    ctx.worked[target] = ctx.worked.get(target, 0) + minutes
+    if action == "hire":
+        spawned = _hire_worker(ctx.fleet_cfg, target, minutes,
+                               max_steps=args.max_steps,
+                               extra=" ".join(ctx.passthrough[1:]))
+        tag = "hired" if spawned else "already has a worker"
+        print(f"[command] hire {target} for {minutes}m -> {tag} ({note})")
+        time.sleep(args.poll_seconds)
+        return "continue"
+    if action == "fire":
+        killed = _fire_worker(ctx.session, target)
+        print(f"[command] fire {target} -> {'released' if killed else 'no worker'} ({note})")
+        time.sleep(args.poll_seconds)
+        return "continue"
+    print(f"\n[command] -> {target} for {minutes}m ({note}) "
+          f"[{format_time_budget(ctx.deadline)}]")
+    cmd = ctx.cli + [
+        "--store", str(ctx.root / target / ".sapper"), "auto",
+        "--minutes", str(minutes), "--max-steps", str(args.max_steps),
+    ] + ctx.passthrough
+    subprocess.run(cmd, cwd=str(ctx.root / target), check=False)
+    return "next"
+
+
+def _command_final_board(root: Path) -> None:
+    print("[command] final board:")
+    for r in _board_summary(root):
+        mark = "DONE" if r["status"] == "completed" else r["status"]
+        print(f"[command]   {r['name']}: {mark}  flags={r['flags_submitted']}/{r['flags_recorded']}")
+
+
+def cmd_command(args) -> int:
+    """Field-commander loop: read the board, ask the model where the next
+    time slice goes, run `sapper auto` there, repeat until deadline/stop."""
+    ctx = _command_setup(args)
+    while time.time() < ctx.deadline:
+        workers = _active_workers(ctx.session)
+        rows = [r for r in _board_summary(ctx.root) if r["status"] != "completed"]
         for r in rows:
             r["worker"] = "yes" if r["name"] in workers else "-"
         if not rows and not workers:
             print("[command] all challenge graphs completed")
             break
         if not rows:
-            # everything done except workers still burning - wait on them
             print(f"[command] waiting on hired workers: {sorted(workers)}")
-            time.sleep(args.poll_seconds)
+            time.sleep(ctx.args.poll_seconds)
             continue
-        remaining_min = max(1, int((deadline - time.time()) // 60))
-        action = target = ""
-        minutes = min(args.minutes_default, remaining_min)
-        note = ""
-        try:
-            prompt = _replace_placeholders(tpl, {
-                "board": render_board(rows),
-                "time_budget": format_time_budget(deadline),
-            })
-            envelope = run_claude(
-                prompt, model=model, timeout=timeout, skip_permissions=False,
-                append_system=None, cwd=Path.cwd(),
-            )
-            action, target, minutes_raw, note = _parse_command_payload(
-                extract_json_object(envelope.get("result", ""))
-            )
-            minutes = max(1, min(int(minutes_raw or minutes), args.minutes_max, remaining_min))
-        except FGError as exc:
-            print(f"[command] model decision failed ({exc}); falling back to round-robin")
-            free = [r for r in rows if r["name"] not in workers]
-            row = next((r for r in free if worked.get(r["name"], 0) == min(worked.values() or [0])), rows[0])
-            action, target, minutes = "work", row["name"], min(args.minutes_default, remaining_min)
-            note = "round-robin fallback"
-        if action == "reject":
-            noop_streak += 1
-            if noop_streak >= 2:
-                print("[command] model rejected the board twice - stopping")
-                break
-            continue
-        if action == "stop":
-            print(f"[command] model says stop: {note}")
-            break
+        action, target, minutes, note, _remaining = _command_decide(ctx, rows, workers)
         names = {r["name"] for r in rows}
-        if target not in names:
-            print(f"[command] unknown/parked target {target!r}; skipping decision")
-            noop_streak += 1
-            if noop_streak >= 3:
-                break
+        status = _command_apply(ctx, names, action, target, minutes, note)
+        if status == "break":
+            break
+        if status == "continue":
             continue
-        noop_streak = 0
-        worked[target] = worked.get(target, 0) + minutes
-        if action == "hire":
-            spawned = _hire_worker(fleet_cfg, target, minutes,
-                                   max_steps=args.max_steps,
-                                   extra=" ".join(passthrough[1:]))
-            tag = "hired" if spawned else "already has a worker"
-            print(f"[command] hire {target} for {minutes}m -> {tag} ({note})")
-            time.sleep(args.poll_seconds)
-            continue
-        if action == "fire":
-            killed = _fire_worker(session, target)
-            print(f"[command] fire {target} -> {'released' if killed else 'no worker'} ({note})")
-            time.sleep(args.poll_seconds)
-            continue
-        print(f"\n[command] -> {target} for {minutes}m ({note}) "
-              f"[{format_time_budget(deadline)}]")
-        cmd = cli + [
-            "--store", str(root / target / ".sapper"), "auto",
-            "--minutes", str(minutes), "--max-steps", str(args.max_steps),
-        ] + passthrough
-        subprocess.run(cmd, cwd=str(root / target), check=False)
-
-    print("[command] final board:")
-    for r in _board_summary(root):
-        mark = "DONE" if r["status"] == "completed" else r["status"]
-        print(f"[command]   {r['name']}: {mark}  flags={r['flags_submitted']}/{r['flags_recorded']}")
+    _command_final_board(ctx.root)
     return 0
 
 

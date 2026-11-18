@@ -9,6 +9,7 @@ Do not relax them while moving code between modules.
 from __future__ import annotations
 
 import contextlib
+import datetime
 import io
 import subprocess
 import sys
@@ -292,6 +293,40 @@ class FacadeContractTests(unittest.TestCase):
             self.assertIn("counts: 1 facts, 0 open / 0 done intents, 0 hints", out)
 
 
+class KBCommandContractTests(unittest.TestCase):
+    """cmd_kb's per-action stdout format is pinned."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="sapper-kb-")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = self.tmp.name
+
+    def _run(self, action, **kwargs):
+        base = dict(
+            action=action, target=None, description=None, detail=None,
+            detail_file=None, command=None, tag=None, source=None,
+            root=self.root, limit=5,
+        )
+        base.update(kwargs)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = sapper.cmd_kb(SimpleNamespace(**base))
+        return rc, out.getvalue()
+
+    def test_root_add_show_search(self):
+        self.assertEqual(self._run("root"), (0, f"{self.root}\n"))
+        rc, out = self._run("add", target="Sqli", description="desc", tag=["web"])
+        self.assertEqual(rc, 0)
+        self.assertRegex(out, r"^kb\d{3,}  Sqli\n$")
+        self.assertEqual(self._run("list")[0], 0)
+        self.assertEqual(self._run("search", target="Sqli")[0], 0)
+        self.assertEqual(self._run("show", target="kb001")[0], 0)
+
+    def test_unknown_action_error(self):
+        with self.assertRaisesRegex(sapper.FGError, "unknown kb action"):
+            self._run("nope")
+
+
 class AutoLoopContractTests(unittest.TestCase):
     """cmd_auto's reason -> explore flow must survive phase extraction."""
 
@@ -321,6 +356,35 @@ class AutoLoopContractTests(unittest.TestCase):
             self.assertIn("concluded by the executor itself", text)
             self.assertIn("no graph change after work", text)
             self.assertIn("explored=1", text)
+
+
+class CommandLoopContractTests(unittest.TestCase):
+    """cmd_command fallback must keep its decision and subprocess contract."""
+
+    def test_model_failure_falls_back_to_round_robin(self):
+        with tempfile.TemporaryDirectory(prefix="sapper-command-") as root:
+            _run_cli("--store", str(Path(root) / "c01" / ".sapper"), "init", "--goal", "g")
+            deadline = datetime.datetime.fromtimestamp(
+                datetime.datetime.now().timestamp() + 1
+            ).isoformat()
+            args = SimpleNamespace(
+                root=root, store=".sapper", minutes=None, deadline=deadline,
+                model="m", timeout=5, skip_permissions=False, verify=False,
+                templates=None, minutes_default=5, minutes_max=40,
+                max_steps=3, poll_seconds=0, fleet_file=None,
+            )
+            out = io.StringIO()
+            with mock.patch.object(sapper, "run_claude", side_effect=sapper.FGError("boom")), \
+                 mock.patch.object(sapper, "_active_workers", return_value=set()), \
+                 mock.patch.object(sapper.subprocess, "run") as spawned, \
+                 contextlib.redirect_stdout(out):
+                rc = sapper.cmd_command(args)
+            text = out.getvalue()
+            self.assertEqual(rc, 0)
+            self.assertIn("falling back to round-robin", text)
+            self.assertIn("[command] -> c01 for 1m (round-robin fallback)", text)
+            self.assertGreaterEqual(spawned.call_count, 1)
+            self.assertIn("auto", spawned.call_args.args[0])
 
 
 class ValidateGraphContractTests(unittest.TestCase):
