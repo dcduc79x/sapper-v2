@@ -1,0 +1,23 @@
+# Tooling configuration for behavior-preserving refactoring.
+#
+# Scope is deliberately limited to the Python sources this project owns:
+#   lib/    - CLI, hooks, arena/kb bridges, settings patch
+#   tests/  - stdlib unittest suite
+# Everything else (docs, docker, .agents/skills/) is out of scope.
+
+[tool.ruff]
+include = ["lib/**/*.py", "tests/**/*.py"]
+extend-exclude = [".agents/skills", "skills-lock.json"]
+target-version = "py310"
+respect-gitignore = true
+
+[tool.ruff.lint]
+# Pinned to the exact codes present in the pre-refactor baseline (59 findings)
+# so the lint delta stays comparable across phases. Do NOT widen this list
+# mid-refactor; several blind-except / check=False sites are intentional fault
+# tolerance and must not be bulk-fixed.
+select = [
+    "BLE001", "TRY004", "PLW1510", "RUF059", "F841", "RUF015",
+    "RUF100", "SIM115", "F541", "SIM102", "SIM117", "SIM103",
+    "UP031", "UP037", "S110", "I001", "F401",
+]
