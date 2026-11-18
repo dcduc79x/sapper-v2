@@ -290,6 +290,19 @@ class FacadeContractTests(unittest.TestCase):
             self.assertIn("counts: 1 facts, 0 open / 0 done intents, 0 hints", out)
 
 
+class GraphAnalysisTests(unittest.TestCase):
+    """Extracted graph helpers must stay callable from the facade."""
+
+    def test_recall_finds_a_similar_fact(self):
+        with tempfile.TemporaryDirectory(prefix="sapper-recall-") as store:
+            _run_cli("--store", store, "init", "--goal", "demo")
+            _run_cli("--store", store, "fact", "alpha beta gateway")
+            graph = sapper.Store(Path(store))
+            hits = sapper.recall(graph, "alpha")
+            self.assertTrue(hits)
+            self.assertEqual(hits[0]["id"], "f001")
+
+
 class StorageConcurrencyTests(unittest.TestCase):
     """The extracted Store must keep cross-process flock semantics."""
 
