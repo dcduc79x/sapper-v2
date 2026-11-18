@@ -25,11 +25,13 @@ def cmd_init(args) -> int:
     print(f"goal: {goal}")
     return 0
 
+
 def cmd_status(args) -> int:
     store = Store(Path(args.store))
     store.require()
     print(render_status(store))
     return 0
+
 
 def cmd_graph(args) -> int:
     store = Store(Path(args.store))
@@ -39,6 +41,7 @@ def cmd_graph(args) -> int:
     else:
         print(render_graph_text(store))
     return 0
+
 
 def cmd_validate(args) -> int:
     store = Store(Path(args.store))
@@ -51,6 +54,7 @@ def cmd_validate(args) -> int:
         return 1
     print(f"graph valid: {store.root}")
     return 0
+
 
 def cmd_frontier(args) -> int:
     store = Store(Path(args.store))
@@ -67,6 +71,7 @@ def cmd_frontier(args) -> int:
             mark = "  [needs confirmation]"
         print(f"{i['id']}\tfrom={','.join(i['from'])}\t{i['description']}{mark}")
     return 0
+
 
 def cmd_pick(args) -> int:
     store = Store(Path(args.store))
@@ -96,6 +101,7 @@ def cmd_pick(args) -> int:
     print(chosen["id"])
     return 0
 
+
 def cmd_fact(args) -> int:
     store = Store(Path(args.store))
     store.require()
@@ -112,6 +118,7 @@ def cmd_fact(args) -> int:
     if args.json:
         print(json.dumps(fact, ensure_ascii=False))
     return 0
+
 
 def cmd_intent(args) -> int:
     store = Store(Path(args.store))
@@ -130,6 +137,7 @@ def cmd_intent(args) -> int:
         print(json.dumps(intent, ensure_ascii=False))
     return 0
 
+
 def cmd_hint(args) -> int:
     store = Store(Path(args.store))
     store.require()
@@ -142,6 +150,7 @@ def cmd_hint(args) -> int:
     h = store.add_hint(content=args.content, creator=args.creator)
     print(h["id"])
     return 0
+
 
 def cmd_show(args) -> int:
     store = Store(Path(args.store))
@@ -156,6 +165,7 @@ def cmd_show(args) -> int:
     elif args.entity == "intent":
         print(json.dumps(store.get_intent(args.id), ensure_ascii=False, indent=2))
     return 0
+
 
 def cmd_doc(args) -> int:
     """Read or write a node's detailed document (the third doc layer).
@@ -201,6 +211,7 @@ def cmd_doc(args) -> int:
         return 1
     return 0
 
+
 def cmd_recall(args) -> int:
     """Find prior facts/intents whose title+description look similar to the
     given query. Use this BEFORE starting a new task: if a strong match
@@ -226,12 +237,14 @@ def cmd_recall(args) -> int:
         print(render_recall(matches, query))
     return 0 if matches else 1
 
+
 def cmd_claim(args) -> int:
     store = Store(Path(args.store))
     store.require()
     intent = store.claim_intent(args.id, args.worker)
     print(f"claimed {intent['id']} -> {args.worker}")
     return 0
+
 
 def cmd_release(args) -> int:
     store = Store(Path(args.store))
@@ -240,6 +253,7 @@ def cmd_release(args) -> int:
     intent = store.release_intent(args.id, worker)
     print(f"released {intent['id']}")
     return 0
+
 
 def cmd_done(args) -> int:
     store = Store(Path(args.store))
@@ -257,6 +271,7 @@ def cmd_done(args) -> int:
     print(f"{args.id} -> {fact['id']}  ({intent['status']})")
     return 0
 
+
 def cmd_complete(args) -> int:
     store = Store(Path(args.store))
     store.require()
@@ -266,12 +281,14 @@ def cmd_complete(args) -> int:
     print(f"project complete via {intent['id']} (goal)")
     return 0
 
+
 def cmd_confirm(args) -> int:
     store = Store(Path(args.store))
     store.require()
     intent = store.confirm_intent(args.id)
     print(f"confirmed {intent['id']}")
     return 0
+
 
 def cmd_brainstorm_pick(args) -> int:
     """Pick one brainstorm option: confirm it, abandon siblings from same batch."""

@@ -280,8 +280,12 @@ class FacadeContractTests(unittest.TestCase):
         fake = {"result": "{}"}
         with mock.patch.object(sapper, "run_claude", return_value=fake):
             result = _shared.run_claude(
-                "prompt", model="m", timeout=1, skip_permissions=False,
-                append_system=None, cwd=Path("."),
+                "prompt",
+                model="m",
+                timeout=1,
+                skip_permissions=False,
+                append_system=None,
+                cwd=Path("."),
             )
         self.assertIs(result, fake)
         with mock.patch.object(sapper, "_tmux", return_value="ok") as tm:

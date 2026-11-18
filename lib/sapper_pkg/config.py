@@ -2,7 +2,13 @@
 
 from .storage import LOCK_NAME
 
-__all__ = ["DEFAULT_STORE", "LOCK_NAME", "PEERS_FILE", "AI_CHANNEL_NAME", "PEER_NAME_RE"]
+__all__ = [
+    "DEFAULT_STORE",
+    "LOCK_NAME",
+    "PEERS_FILE",
+    "AI_CHANNEL_NAME",
+    "PEER_NAME_RE",
+]
 
 DEFAULT_STORE = ".sapper"
 PEERS_FILE = "ai-peers.json"

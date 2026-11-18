@@ -110,7 +110,6 @@ from sapper_pkg.render import (
 __version__ = "1.0.0"
 
 
-
 # --------------------------------------------------------------------------- #
 # store
 # --------------------------------------------------------------------------- #
@@ -159,24 +158,6 @@ def _assert_safe_store_root(root: Path, action: str) -> None:
         )
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # --------------------------------------------------------------------------- #
 # flag ledger - record/dedupe/submit flags; shared arena loader
 # --------------------------------------------------------------------------- #
@@ -216,8 +197,6 @@ def _find_flag_fact(store: Store, value: str) -> dict | None:
         if (f.get("data") or {}).get("value") == value:
             return f
     return None
-
-
 
 
 # --------------------------------------------------------------------------- #
@@ -332,8 +311,6 @@ _KB_ACTIONS = {
 }
 
 
-
-
 # --------------------------------------------------------------------------- #
 # bench - TSecBench full-loop driver: list -> start -> solve -> submit -> close
 # This is what the hosted-mode container entrypoint runs.
@@ -432,8 +409,6 @@ def _bench_submit_recorded(store: Store, code: str) -> int:
         )
         submitted += 1
     return submitted
-
-
 
 
 def _bench_parallel(args, client, root, cli, engine_args, todo, deadline) -> int:
@@ -916,8 +891,6 @@ def _command_final_board(root: Path) -> None:
         )
 
 
-
-
 # --------------------------------------------------------------------------- #
 # fleet - launch the whole formation in tmux panes before a match
 # --------------------------------------------------------------------------- #
@@ -999,17 +972,9 @@ def _fleet_pane_command(cfg: dict, pane: dict, base_dir: Path | None = None) -> 
     return cmd
 
 
-
-
 # --------------------------------------------------------------------------- #
 # sweep - round-robin `auto` across per-challenge graphs under a runs/ root
 # --------------------------------------------------------------------------- #
-
-
-
-
-
-
 
 
 def _edit_via_editor(initial: str, title: str) -> str:
@@ -1027,16 +992,6 @@ def _edit_via_editor(initial: str, title: str) -> str:
         return Path(tmp).read_text(encoding="utf-8")
     finally:
         Path(tmp).unlink(missing_ok=True)
-
-
-
-
-
-
-
-
-
-
 
 
 # -- dispatch (LLM) --
@@ -1353,8 +1308,6 @@ def _apply_brainstorm(
     return f"proposed {len(made)} options (confirm one with `sapper brainstorm-pick <id>`): {', '.join(made)}"
 
 
-
-
 def _load_template(templates_dir: Path, name: str) -> str:
     p = templates_dir / name
     if not p.exists():
@@ -1535,10 +1488,6 @@ def _load_settings_patch():
         raise FGError(f"could not load settings patcher: {exc}") from exc
 
 
-
-
-
-
 # --------------------------------------------------------------------------- #
 # view - HTML visualization (static file or live server)
 # --------------------------------------------------------------------------- #
@@ -1578,8 +1527,6 @@ def _render_static_html(store: Store) -> str:
         f"/*__GRAPH_JSON__*/ {payload} /*__END__*/",
     )
     return tpl
-
-
 
 
 def _try_open(path: Path) -> bool:
@@ -1944,8 +1891,6 @@ def _auto_explore_phase(ctx: _AutoCtx, step: int, before: tuple) -> str:
     return "continue"
 
 
-
-
 def _run_reason_raw(
     store, templates_dir, model, timeout, skip, cwd, time_budget: str = ""
 ) -> tuple[str, str]:
@@ -2171,12 +2116,6 @@ def _capture_tmux(target: str, lines: int) -> str:
     if proc.returncode != 0:
         raise FGError(proc.stderr.strip() or f"tmux capture failed for {target}")
     return proc.stdout.rstrip()
-
-
-
-
-
-
 
 
 _AGENTS_MARKER = (

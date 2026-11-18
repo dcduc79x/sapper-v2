@@ -34,6 +34,7 @@ def cmd_auto(args) -> int:
     print(f"[auto] done  status={project['status']}  explored={ctx.explore_count}")
     return 0
 
+
 def cmd_dispatch(args) -> int:
     store = Store(Path(args.store))
     store.require()
@@ -66,6 +67,7 @@ def cmd_dispatch(args) -> int:
         return _dispatch_explore(
             store, templates_dir, intent, model, timeout, skip, cwd, args
         )
+
 
 def cmd_sweep(args) -> int:
     """Drive multiple per-challenge graphs in rotation until deadline.
@@ -154,6 +156,7 @@ def cmd_sweep(args) -> int:
         done += 1 if status == "completed" else 0
     print(f"[sweep] finished: {done}/{len(graph_dirs)} goals reached")
     return 0
+
 
 def cmd_bench(args) -> int:
     """Drive the TSecBench Challenges API end-to-end with sapper per challenge.
@@ -274,6 +277,7 @@ def cmd_bench(args) -> int:
     )
     return 0
 
+
 def cmd_command(args) -> int:
     """Field-commander loop: read the board, ask the model where the next
     time slice goes, run `sapper auto` there, repeat until deadline/stop."""
@@ -299,6 +303,7 @@ def cmd_command(args) -> int:
             continue
     _command_final_board(ctx.root)
     return 0
+
 
 def cmd_fleet(args) -> int:
     path = Path(args.file)

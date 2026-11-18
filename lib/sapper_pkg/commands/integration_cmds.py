@@ -54,6 +54,7 @@ def cmd_flag(args) -> int:
     print(f"{fact['id']} {status}: {raw[:300]}")
     return 0 if accepted else 1
 
+
 def cmd_arena(args) -> int:
     store = Store(Path(args.store))
     if args.action == "init":
@@ -90,6 +91,7 @@ def cmd_arena(args) -> int:
     print(json.dumps(reply.get("result", {}), ensure_ascii=False, indent=2))
     return 0
 
+
 def cmd_kb(args) -> int:
     module, kb = _kb(args)
     handler = _KB_ACTIONS.get(args.action)
@@ -103,6 +105,7 @@ def cmd_kb(args) -> int:
         return handler(args, kb)
     except module.KBError as exc:
         raise FGError(str(exc)) from exc
+
 
 def cmd_peers(args) -> int:
     store = Store(Path(args.store))
@@ -185,6 +188,7 @@ def cmd_peers(args) -> int:
         )
     return 0
 
+
 def cmd_send(args) -> int:
     store = Store(Path(args.store))
     store.require()
@@ -238,6 +242,7 @@ def cmd_send(args) -> int:
     print(f"sent to {args.peer} ({target}): {message}")
     return 0
 
+
 def cmd_capture(args) -> int:
     store = Store(Path(args.store))
     store.require()
@@ -271,6 +276,7 @@ def cmd_capture(args) -> int:
             )
             fh.write(text + "\n")
     return 0
+
 
 def cmd_setup(args) -> int:
     """`sapper setup` - turn THIS project into a fact-graph project.
@@ -339,6 +345,7 @@ def cmd_setup(args) -> int:
     )
     return 0
 
+
 def cmd_teardown(args) -> int:
     """`sapper teardown` - remove the hooks and sapper-owned AGENTS.md from THIS project.
 
@@ -399,6 +406,7 @@ def cmd_teardown(args) -> int:
         if sr.exists():
             print(f"(kept graph data at {sr}; pass --purge to delete it too)")
     return 0
+
 
 def cmd_view(args) -> int:
     store = Store(Path(args.store))
