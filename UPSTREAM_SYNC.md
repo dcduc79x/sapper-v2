@@ -169,6 +169,21 @@ git push origin staging/normalized-20261119:refs/heads/staging/normalized-202611
 
 The push above requires separate approval and is not part of preparation. The workflow selects refs by branch name. On `staging/normalized-*`, it uses `MAINTAINED_REFS=HEAD` so validation follows the clean staging head while the old `origin/master` and absent `origin/develop` are ignored. On maintained production branches it uses `origin/master origin/develop`. The gate fails closed if any selected ref is missing. Historical blobs, filenames and commit messages for all commits reachable from the selected refs are scanned. A green run confirms the clean history, tooling and docs validate from a fresh clone. No remote branch is deleted until after the approved migration and a second verification.
 
+## Automated upstream monitoring
+
+`.github/workflows/upstream-monitor.yml` runs daily at 01:00 UTC (08:00 Asia/Ho_Chi_Minh) and on manual dispatch. It reads `last_integrated_sha` from `.upstream-state.json` and queries the official upstream through the read-only GitHub API. It never fetches upstream Git objects into this repository.
+
+Possible results:
+
+- `UP_TO_DATE`: no issue is created or changed.
+- `UPDATE_AVAILABLE`: one monitoring issue is created or updated.
+- `UPSTREAM_DIVERGED`: one issue requests manual review.
+- `CHECK_FAILED`: the workflow fails; no issue is created.
+
+The workflow has `contents: read` and `issues: write` permissions only. It never merges, cherry-picks, rewrites or pushes upstream code, and it never updates `last_integrated_sha`. Upstream commit messages are treated as untrusted data and are sanitized before appearing in an issue.
+
+Integration remains manual through the sync workflow above. Scheduled workflows run from the default branch and may be delayed by GitHub.
+
 ## Promotion and push
 
 After all gates pass:

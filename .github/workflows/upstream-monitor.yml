@@ -1,0 +1,34 @@
+name: Upstream monitor
+
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run without creating or updating issues'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check upstream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: python3 scripts/upstream_monitor.py
