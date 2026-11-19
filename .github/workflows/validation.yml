@@ -1,0 +1,37 @@
+name: Validation
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+      - sync/upstream-*
+  pull_request:
+    branches:
+      - master
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run quality gate
+        env:
+          MAINTAINED_REFS: origin/master origin/develop
+        run: bash scripts/upstream-sync-gate.sh
