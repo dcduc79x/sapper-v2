@@ -166,18 +166,22 @@ class ArenaClient:
                 raw = resp.read().decode("utf-8", "replace")
                 status = resp.status
         except urllib.error.HTTPError as exc:
-            raw = exc.read().decode("utf-8", "replace")[:600]
-            code = None
-            message = raw
-            detail = {}
             try:
-                payload = json.loads(raw)
-                if isinstance(payload, dict):
-                    code = payload.get("code")
-                    message = payload.get("message", raw)
-                    detail = payload.get("detail") or {}
-            except json.JSONDecodeError:
-                pass
+                raw = exc.read().decode("utf-8", "replace")[:600]
+                code = None
+                message = raw
+                detail = {}
+                try:
+                    payload = json.loads(raw)
+                    if isinstance(payload, dict):
+                        code = payload.get("code")
+                        message = payload.get("message", raw)
+                        detail = payload.get("detail") or {}
+                except json.JSONDecodeError:
+                    pass
+            finally:
+                # HTTPError owns the response socket; release it even on errors.
+                exc.close()
             raise ArenaError(
                 f"arena {method} {path} -> HTTP {exc.code}: {message}",
                 code=code,

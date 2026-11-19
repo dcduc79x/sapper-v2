@@ -438,7 +438,51 @@ class CommandLoopContractTests(unittest.TestCase):
             self.assertIn("falling back to round-robin", text)
             self.assertIn("[command] -> c01 for 1m (round-robin fallback)", text)
             self.assertGreaterEqual(spawned.call_count, 1)
-            self.assertIn("auto", spawned.call_args.args[0])
+            argv = spawned.call_args.args[0]
+            self.assertIn("auto", argv)
+            self.assertEqual(argv[0], sys.executable)
+            self.assertEqual(Path(argv[1]).name, "sapper.py")
+
+
+class SubprocessEntrypointTests(unittest.TestCase):
+    """Extracted handlers must spawn the CLI entrypoint, not their own file."""
+
+    def test_sweep_spawns_sapper_py(self):
+        with tempfile.TemporaryDirectory(prefix="sapper-sweep-") as root:
+            _run_cli(
+                "--store", str(Path(root) / "c01" / ".sapper"), "init", "--goal", "g"
+            )
+            deadline = datetime.datetime.fromtimestamp(
+                datetime.datetime.now().timestamp() + 1
+            ).isoformat()
+            args = SimpleNamespace(
+                root=root,
+                store=".sapper",
+                minutes=None,
+                deadline=deadline,
+                minutes_per=1,
+                model="m",
+                skip_permissions=False,
+                verify=False,
+                templates=None,
+                max_steps=2,
+            )
+            with (
+                mock.patch.object(sapper.subprocess, "run") as spawned,
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                sapper.cmd_sweep(args)
+            self.assertGreaterEqual(spawned.call_count, 1)
+            for call in spawned.call_args_list:
+                argv = call.args[0]
+                self.assertEqual(argv[0], sys.executable)
+                self.assertEqual(Path(argv[1]).name, "sapper.py")
+                self.assertNotIn("autonomy_cmds.py", argv[1])
+
+    def test_engine_prefix_points_at_sapper_py(self):
+        prefix = sapper._sapper_engine_prefix()
+        self.assertTrue(prefix.startswith("python3 "))
+        self.assertEqual(Path(prefix.split(" ", 1)[1]).name, "sapper.py")
 
 
 class ValidateGraphContractTests(unittest.TestCase):

@@ -580,7 +580,8 @@ class ArenaClientTests(unittest.TestCase):
                 )
 
         server = HTTPServer(("127.0.0.1", 0), Handler)
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
         try:
             client = arena.ArenaClient(
                 f"http://127.0.0.1:{server.server_address[1]}", "tok-x"
@@ -595,6 +596,8 @@ class ArenaClientTests(unittest.TestCase):
             self.assertTrue(client.close_challenge("c1")["closed"])
         finally:
             server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
 
         # every call carried the BENCHMARK_TOKEN header
         self.assertTrue(all(entry[2] == "tok-x" for entry in seen), seen)
@@ -629,7 +632,8 @@ class ArenaClientTests(unittest.TestCase):
                 self.wfile.write(data)
 
         server = HTTPServer(("127.0.0.1", 0), Handler)
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
         try:
             client = arena.ArenaClient(
                 f"http://127.0.0.1:{server.server_address[1]}", "t"
@@ -640,6 +644,8 @@ class ArenaClientTests(unittest.TestCase):
             self.assertEqual(ctx.exception.status, 409)
         finally:
             server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
 
     def test_config_resolution_env_and_file(self):
         arena = self._arena()
@@ -711,7 +717,8 @@ class ArenaErrorBridgeTests(unittest.TestCase):
                 self.wfile.write(data)
 
         server = HTTPServer(("127.0.0.1", 0), Handler)
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
         try:
             client = arena.ArenaClient(
                 f"http://127.0.0.1:{server.server_address[1]}", "t"
@@ -721,6 +728,8 @@ class ArenaErrorBridgeTests(unittest.TestCase):
             self.assertIn("max active", str(ctx.exception).lower())
         finally:
             server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
 
 
 class CommanderTests(unittest.TestCase):

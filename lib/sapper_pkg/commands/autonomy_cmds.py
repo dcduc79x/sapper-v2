@@ -1,5 +1,6 @@
 """autonomy cmds - handlers extracted from the facade."""
 
+from ..paths import CLI_SCRIPT
 from ._shared import *
 
 
@@ -95,7 +96,7 @@ def cmd_sweep(args) -> int:
     if args.minutes_per < 1:
         raise FGError("--minutes-per must be at least 1")
 
-    cli = [sys.executable, str(Path(__file__).resolve()), "auto"]
+    cli = [sys.executable, str(CLI_SCRIPT), "auto"]
     passthrough = ["--model", args.model]
     if args.skip_permissions:
         passthrough.append("--skip-permissions")
@@ -170,7 +171,7 @@ def cmd_bench(args) -> int:
     root.mkdir(parents=True, exist_ok=True)
     deadline = deadline_from_args(args)
     templates_dir = _resolve_templates_dir(args)
-    cli = [sys.executable, str(Path(__file__).resolve())]
+    cli = [sys.executable, str(CLI_SCRIPT)]
     engine_args = ["--model", args.model]
     if args.skip_permissions:
         engine_args.append("--skip-permissions")

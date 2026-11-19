@@ -58,7 +58,7 @@ from sapper_pkg.model import (
     parse_kv_pairs,  # noqa: F401 - facade re-export
     now_iso,
 )
-from sapper_pkg.paths import TEMPLATES_DIR
+from sapper_pkg.paths import CLI_SCRIPT, TEMPLATES_DIR
 from sapper_pkg.schema import node_schema_errors as _node_schema_errors  # noqa: F401 - facade alias
 from sapper_pkg.storage import (
     LOCK_NAME,  # noqa: F401 - facade re-export
@@ -733,7 +733,7 @@ def _command_setup(args) -> _CommandCtx:
     if deadline is None:
         raise FGError("command needs --minutes or --deadline (the match slot clock)")
     templates_dir = _resolve_templates_dir(args)
-    cli = [sys.executable, str(Path(__file__).resolve())]
+    cli = [sys.executable, str(CLI_SCRIPT)]
     passthrough = ["--model", args.model]
     if args.skip_permissions:
         passthrough.append("--skip-permissions")
@@ -939,7 +939,7 @@ def _fleet_load(path: Path) -> dict:
 def _sapper_engine_prefix() -> str:
     """Absolute, PATH-independent way to invoke this CLI in generated
     commands (tmux panes may not have ~/.local/bin on PATH)."""
-    return f"python3 {Path(__file__).resolve()}"
+    return f"python3 {CLI_SCRIPT}"
 
 
 def _fleet_pane_command(cfg: dict, pane: dict, base_dir: Path | None = None) -> str:
