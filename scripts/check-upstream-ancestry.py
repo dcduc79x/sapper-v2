@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 BASELINE = "7b75e6f1f5d5b4ae0c55878b0dd0994d9b08f1fb"
-CLEAN_TIP = "71084d8f477d0e215c317cb75fd14321c81e0fdd"
+CLEAN_TIP = "e22c17e9ddb2eff89146d39fb21e75b9913204a2"
 
 
 def git_ok(*args: str) -> bool:

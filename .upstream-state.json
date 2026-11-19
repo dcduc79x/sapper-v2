@@ -2,7 +2,7 @@
   "canonical_repository": "https://github.com/dcduc79x/sapper-v2.git",
   "upstream_source": "https://github.com/N1nEmAn/sapper-v2.git",
   "baseline_sha": "7b75e6f1f5d5b4ae0c55878b0dd0994d9b08f1fb",
-  "rewritten_clean_tip": "71084d8f477d0e215c317cb75fd14321c81e0fdd",
+  "rewritten_clean_tip": "e22c17e9ddb2eff89146d39fb21e75b9913204a2",
   "last_integrated_sha": "7b75e6f1f5d5b4ae0c55878b0dd0994d9b08f1fb",
   "last_integrated_at": "2026-11-19T00:00:00Z",
   "baseline_source": "verified-by-maintainer",

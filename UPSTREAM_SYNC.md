@@ -7,7 +7,7 @@ This document defines how upstream changes enter the clean sapper-v2 history wit
 - Canonical GitHub fork: `https://github.com/dcduc79x/sapper-v2.git`
 - Original upstream: `https://github.com/N1nEmAn/sapper-v2.git`
 - Verified upstream baseline: `7b75e6f1f5d5b4ae0c55878b0dd0994d9b08f1fb`
-- Rewritten clean tip: `71084d8f477d0e215c317cb75fd14321c81e0fdd`
+- Rewritten clean tip: `e22c17e9ddb2eff89146d39fb21e75b9913204a2`
 - Persistent backup: `/home/dcduc/stuffs/sapper-backups/20261119-history-normalization`
 
 The baseline is the verified upstream master commit, not the current upstream HEAD. Never substitute upstream HEAD when the baseline is missing.
@@ -51,7 +51,7 @@ CLEAN=/home/dcduc/stuffs/sapper
 REWRITE=/tmp/opencode/sapper-history-normalization-20261119/rewrite
 
 git -C "$CLEAN" fetch "$REWRITE" refs/heads/master:refs/heads/migration/master-clean
-test "$(git -C "$CLEAN" rev-parse refs/heads/migration/master-clean)" = "71084d8f477d0e215c317cb75fd14321c81e0fdd"
+test "$(git -C "$CLEAN" rev-parse refs/heads/migration/master-clean)" = "e22c17e9ddb2eff89146d39fb21e75b9913204a2"
 git -C "$CLEAN" branch develop refs/heads/migration/master-clean
 ```
 
