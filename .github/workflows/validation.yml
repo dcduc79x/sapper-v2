@@ -6,6 +6,7 @@ on:
       - master
       - develop
       - sync/upstream-*
+      - staging/normalized-*
   pull_request:
     branches:
       - master
