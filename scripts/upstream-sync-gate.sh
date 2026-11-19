@@ -10,6 +10,15 @@ trap 'rm -rf "$tmp"' EXIT
 maintained=${MAINTAINED_REFS:-"master develop"}
 read -r -a refs <<<"$maintained"
 
+echo "[gate] required refs"
+for ref in "${refs[@]}"; do
+	if ! git rev-parse --verify "$ref" >/dev/null 2>&1; then
+		echo "FAIL required ref missing: $ref"
+		exit 1
+	fi
+	echo "  OK $ref -> $(git rev-parse --short "$ref")"
+done
+
 echo "[gate] compile"
 python3 -m compileall -q lib
 

@@ -31,6 +31,32 @@ def scan(text: str, scope: str, violations: list[str]) -> None:
                 violations.append(f"{scope}:{lineno}:{FORBIDDEN[code]}")
 
 
+def scan_history(refs: list[str], violations: list[str]) -> int:
+    seen_blobs: set[str] = set()
+    for ref in refs:
+        commits = git("rev-list", ref).decode("utf-8", "replace").split()
+        for commit in commits:
+            listing = git(
+                "ls-tree", "-r", "--format=%(objectname) %(path)", commit
+            ).decode("utf-8", "replace")
+            for line in listing.splitlines():
+                oid, path = line.split(" ", 1)
+                for ch in path:
+                    if ord(ch) in FORBIDDEN:
+                        violations.append(
+                            f"history-filename:{commit[:8]}:{path}:{FORBIDDEN[ord(ch)]}"
+                        )
+                if oid in seen_blobs:
+                    continue
+                seen_blobs.add(oid)
+                try:
+                    text = git("cat-file", "blob", oid).decode("utf-8")
+                except UnicodeDecodeError:
+                    continue
+                scan(text, f"blob:{oid[:8]}:{path}", violations)
+    return len(seen_blobs)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -74,12 +100,17 @@ def main() -> int:
             msg = parts[i + 1]
             scan(msg, f"commit:{sha[:8]}", violations)
 
+    historical_blobs = 0
+    if args.refs:
+        historical_blobs = scan_history(args.refs, violations)
+
     untracked = [
         os.fsdecode(p)
         for p in git("ls-files", "--others", "--exclude-standard", "-z").split(b"\0")
         if p
     ]
     print(f"Tracked files scanned: {len(tracked)}")
+    print(f"Historical blobs scanned: {historical_blobs}")
     print(f"EXCLUDED untracked files (not validated): {len(untracked)}")
     if untracked:
         print("Excluded untracked paths are not part of the maintained tree.")

@@ -167,7 +167,7 @@ git switch -c staging/normalized-20261119
 git push origin staging/normalized-20261119:refs/heads/staging/normalized-20261119
 ```
 
-The push above requires separate approval and is not part of preparation. CI runs the validation workflow on that branch with `fetch-depth: 0` and `MAINTAINED_REFS=origin/master origin/develop`. A green run confirms the clean history, tooling and docs validate from a fresh clone. No remote branch is deleted until after the approved migration and a second verification.
+The push above requires separate approval and is not part of preparation. The workflow selects refs by branch name. On `staging/normalized-*`, it uses `MAINTAINED_REFS=HEAD` so validation follows the clean staging head while the old `origin/master` and absent `origin/develop` are ignored. On maintained production branches it uses `origin/master origin/develop`. The gate fails closed if any selected ref is missing. Historical blobs, filenames and commit messages for all commits reachable from the selected refs are scanned. A green run confirms the clean history, tooling and docs validate from a fresh clone. No remote branch is deleted until after the approved migration and a second verification.
 
 ## Promotion and push
 

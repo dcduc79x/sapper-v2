@@ -32,7 +32,13 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
 
+      - name: Select maintained refs
+        run: |
+          if [[ "$GITHUB_REF_NAME" == staging/normalized-* ]]; then
+            echo "MAINTAINED_REFS=HEAD" >> "$GITHUB_ENV"
+          else
+            echo "MAINTAINED_REFS=origin/master origin/develop" >> "$GITHUB_ENV"
+          fi
+
       - name: Run quality gate
-        env:
-          MAINTAINED_REFS: origin/master origin/develop
         run: bash scripts/upstream-sync-gate.sh
